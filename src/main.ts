@@ -7,7 +7,10 @@ import { FishingRod } from './entities/FishingRod';
 import { FishingLine } from './entities/FishingLine';
 import { Bobber } from './entities/Bobber';
 import { FishingStateMachine } from './fishing/FishingStateMachine';
+import { PlayerState } from './state/PlayerState';
 import { GameUI } from './ui/GameUI';
+import { ShopUI } from './ui/ShopUI';
+import { JournalUI } from './ui/JournalUI';
 
 async function main() {
   const container = document.getElementById('game-container')!;
@@ -66,6 +69,11 @@ async function main() {
     originalCameraUpdate(dt);
   };
 
+  // Player state (progression, equipment, journal, persistence)
+  const player = new PlayerState(engine.events);
+  player.init();
+  engine.addComponent(player);
+
   // Fishing state machine
   const fsm = new FishingStateMachine(
     engine.events,
@@ -74,12 +82,21 @@ async function main() {
     line,
     rod,
   );
+  fsm.setPlayerState(player);
   engine.addComponent(fsm);
 
   // UI
-  const ui = new GameUI(engine.events, fsm);
+  const ui = new GameUI(engine.events, fsm, player);
   ui.init();
   engine.addComponent(ui);
+
+  const shop = new ShopUI(engine.events, engine.input, player);
+  shop.init();
+  engine.addComponent(shop);
+
+  const journal = new JournalUI(engine.events, engine.input, player);
+  journal.init();
+  engine.addComponent(journal);
 
   // Start the game loop
   engine.start();

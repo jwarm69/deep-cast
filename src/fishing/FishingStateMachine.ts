@@ -5,6 +5,7 @@ import { FishRaritySystem } from '../fish/FishRaritySystem';
 import { Bobber } from '../entities/Bobber';
 import { FishingLine } from '../entities/FishingLine';
 import { FishingRod } from '../entities/FishingRod';
+import { PlayerState } from '../state/PlayerState';
 
 export class FishingStateMachine implements Component {
   private events: EventSystem;
@@ -13,6 +14,7 @@ export class FishingStateMachine implements Component {
   private bobber: Bobber;
   private line: FishingLine;
   private rod: FishingRod;
+  private player: PlayerState | null = null;
 
   public state = FishingState.IDLE;
 
@@ -59,6 +61,10 @@ export class FishingStateMachine implements Component {
     this.bobber = bobber;
     this.line = line;
     this.rod = rod;
+  }
+
+  setPlayerState(player: PlayerState): void {
+    this.player = player;
   }
 
   /** True if space or left-click is active (for fishing actions) */
@@ -128,7 +134,8 @@ export class FishingStateMachine implements Component {
 
   private launchBobber(): void {
     const power = Math.max(this.castPower, 10);
-    const maxDist = 25;
+    const castMult = this.player?.activeRod.castPowerMultiplier ?? 1;
+    const maxDist = 25 * castMult;
     const dist = (power / 100) * maxDist;
 
     const tip = this.rod.tipPosition;
@@ -152,7 +159,8 @@ export class FishingStateMachine implements Component {
     if (this.flightProgress >= 1) {
       this.flightProgress = 1;
       this.bobber.show(this.flightTarget.x, this.flightTarget.z);
-      this.waitDuration = 2 + Math.random() * 6;
+      const biteMult = this.player?.activeLure.biteSpeedMultiplier ?? 1;
+      this.waitDuration = (2 + Math.random() * 6) / biteMult;
       this.waitTimer = 0;
       this.setState(FishingState.WAITING);
       this.events.emit(Events.BOBBER_LAND);
@@ -185,7 +193,8 @@ export class FishingStateMachine implements Component {
 
     if (this.actionDown) {
       this.bobber.setSinking(false);
-      const fish = this.raritySystem.rollFish();
+      const rarityBonus = this.player?.activeLure.rareBonusChance ?? 0;
+      const fish = this.raritySystem.rollFish(rarityBonus);
       this.reelDifficulty = fish.reelDifficulty;
       this.reelFishName = fish.name;
       this.reelProgress = 0;
@@ -209,7 +218,8 @@ export class FishingStateMachine implements Component {
 
   // --- REELING ---
   private updateReeling(dt: number): void {
-    const fillRate = (1 - this.reelDifficulty) * 0.6 + 0.15;
+    const reelMult = this.player?.activeRod.reelSpeedMultiplier ?? 1;
+    const fillRate = ((1 - this.reelDifficulty) * 0.6 + 0.15) * reelMult;
     const drainRate = 0.12 + this.reelDifficulty * 0.15;
 
     if (this.actionDown) {

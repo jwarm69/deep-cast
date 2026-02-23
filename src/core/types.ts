@@ -82,4 +82,15 @@ export const Events = {
 
   // UI
   CATCH_DISMISSED: 'ui:catch_dismissed',
+
+  // Progression
+  LEVEL_UP: 'player:level_up',
+  COINS_CHANGED: 'player:coins_changed',
+  XP_CHANGED: 'player:xp_changed',
+  EQUIPMENT_PURCHASED: 'player:equipment_purchased',
+  EQUIPMENT_EQUIPPED: 'player:equipment_equipped',
+
+  // Overlays
+  SHOP_TOGGLE: 'ui:shop_toggle',
+  JOURNAL_TOGGLE: 'ui:journal_toggle',
 } as const;

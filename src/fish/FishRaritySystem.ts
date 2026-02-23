@@ -20,14 +20,24 @@ export class FishRaritySystem {
     }
   }
 
-  /** Pick a random fish weighted by rarity */
-  rollFish(): FishSpecies {
-    // Pick rarity tier
-    const totalWeight = Object.values(RARITY_WEIGHTS).reduce((a, b) => a + b, 0);
+  /** Pick a random fish weighted by rarity. rarityBonus shifts weight toward rarer tiers. */
+  rollFish(rarityBonus = 0): FishSpecies {
+    // Build adjusted weights: bonus shifts common weight to rarer tiers
+    const adjusted = { ...RARITY_WEIGHTS };
+    if (rarityBonus > 0) {
+      const shift = adjusted[Rarity.COMMON] * rarityBonus;
+      adjusted[Rarity.COMMON] -= shift;
+      adjusted[Rarity.UNCOMMON] += shift * 0.4;
+      adjusted[Rarity.RARE] += shift * 0.3;
+      adjusted[Rarity.EPIC] += shift * 0.2;
+      adjusted[Rarity.LEGENDARY] += shift * 0.1;
+    }
+
+    const totalWeight = Object.values(adjusted).reduce((a, b) => a + b, 0);
     let roll = Math.random() * totalWeight;
 
     let selectedRarity = Rarity.COMMON;
-    for (const [rarity, weight] of Object.entries(RARITY_WEIGHTS)) {
+    for (const [rarity, weight] of Object.entries(adjusted)) {
       roll -= weight;
       if (roll <= 0) {
         selectedRarity = rarity as Rarity;

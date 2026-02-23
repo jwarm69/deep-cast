@@ -31,6 +31,44 @@
       font-size: 14px;
       text-shadow: 0 1px 3px rgba(0,0,0,0.8);
     }
+    #hud-xp-bg {
+      width: 120px; height: 6px;
+      background: rgba(255,255,255,0.15);
+      border-radius: 3px;
+      overflow: hidden;
+      margin-top: 2px;
+    }
+    #hud-xp-bar {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #38bdf8, #818cf8);
+      border-radius: 3px;
+      transition: width 0.3s;
+    }
+    #hud-coins {
+      color: #facc15;
+    }
+
+    /* Level-up banner */
+    #level-up-banner {
+      position: absolute;
+      top: 80px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: none;
+      font-size: 24px;
+      font-weight: 800;
+      color: #facc15;
+      text-shadow: 0 0 20px rgba(250,204,21,0.5), 0 2px 6px rgba(0,0,0,0.8);
+      text-transform: uppercase;
+      letter-spacing: 3px;
+      animation: level-pulse 0.5s ease-in-out infinite alternate;
+    }
+    #level-up-banner.visible { display: block; }
+    @keyframes level-pulse {
+      from { transform: translateX(-50%) scale(1); }
+      to { transform: translateX(-50%) scale(1.05); }
+    }
 
     /* Cast power meter */
     #cast-ui {
@@ -207,8 +245,11 @@
   <div id="game-ui">
     <div id="hud">
       <div id="hud-level">Level 1</div>
+      <div id="hud-xp-bg"><div id="hud-xp-bar"></div></div>
+      <div id="hud-coins">0 coins</div>
       <div id="hud-fish">Fish: 0</div>
     </div>
+    <div id="level-up-banner"></div>
     <div id="cast-ui">
       <div id="cast-label">Hold SPACE to charge, release to cast</div>
       <div id="power-bar-bg"><div id="power-bar"></div></div>

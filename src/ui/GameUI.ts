@@ -1,6 +1,7 @@
 import { Component, FishingState, Events, Rarity, CatchData } from '../core/types';
 import { EventSystem } from '../core/EventSystem';
 import { FishingStateMachine } from '../fishing/FishingStateMachine';
+import { PlayerState } from '../state/PlayerState';
 
 /**
  * GameUI — manages all DOM overlay UI elements.
@@ -9,9 +10,10 @@ import { FishingStateMachine } from '../fishing/FishingStateMachine';
 export class GameUI implements Component {
   private events: EventSystem;
   private fsm: FishingStateMachine;
+  private player: PlayerState;
 
   // DOM refs
-  private hud: { level: HTMLElement; fish: HTMLElement };
+  private hud: { level: HTMLElement; fish: HTMLElement; coins: HTMLElement; xpBar: HTMLElement };
   private castUI: HTMLElement;
   private powerBar: HTMLElement;
   private biteUI: HTMLElement;
@@ -24,18 +26,22 @@ export class GameUI implements Component {
   private catchWeight: HTMLElement;
   private escapedUI: HTMLElement;
   private prompt: HTMLElement;
+  private levelUpBanner: HTMLElement;
 
-  private fishCount = 0;
   private prevState = FishingState.IDLE;
   private catchDisplayed = false;
+  private levelUpTimer = 0;
 
-  constructor(events: EventSystem, fsm: FishingStateMachine) {
+  constructor(events: EventSystem, fsm: FishingStateMachine, player: PlayerState) {
     this.events = events;
     this.fsm = fsm;
+    this.player = player;
 
     this.hud = {
       level: document.getElementById('hud-level')!,
       fish: document.getElementById('hud-fish')!,
+      coins: document.getElementById('hud-coins')!,
+      xpBar: document.getElementById('hud-xp-bar')!,
     };
     this.castUI = document.getElementById('cast-ui')!;
     this.powerBar = document.getElementById('power-bar')!;
@@ -49,6 +55,7 @@ export class GameUI implements Component {
     this.catchWeight = document.getElementById('catch-weight')!;
     this.escapedUI = document.getElementById('escaped-ui')!;
     this.prompt = document.getElementById('prompt')!;
+    this.levelUpBanner = document.getElementById('level-up-banner')!;
   }
 
   init(): void {
@@ -56,12 +63,21 @@ export class GameUI implements Component {
       const data = e.data as CatchData;
       this.showCatch(data);
     });
+    this.events.on(Events.LEVEL_UP, (e) => {
+      this.showLevelUp(e.data.newLevel);
+    });
+    // Sync HUD from loaded save
+    this.syncHUD();
+  }
+
+  private syncHUD(): void {
+    this.hud.level.textContent = `Level ${this.player.level}`;
+    this.hud.fish.textContent = `Fish: ${this.player.totalFishCaught}`;
+    this.hud.coins.textContent = `${this.player.coins} coins`;
+    this.hud.xpBar.style.width = `${this.player.levelProgress * 100}%`;
   }
 
   private showCatch(data: CatchData): void {
-    this.fishCount++;
-    this.hud.fish.textContent = `Fish: ${this.fishCount}`;
-
     this.catchFishName.textContent = data.species.name;
     this.catchFishName.style.color = `#${data.species.color.toString(16).padStart(6, '0')}`;
 
@@ -71,10 +87,25 @@ export class GameUI implements Component {
     this.catchWeight.textContent = `${data.weight} lbs | +${data.xp} XP | +${data.coins} coins`;
 
     this.catchDisplayed = true;
+    this.syncHUD();
   }
 
-  update(_dt: number): void {
+  private showLevelUp(newLevel: number): void {
+    this.levelUpBanner.textContent = `LEVEL UP! You are now level ${newLevel}`;
+    this.levelUpBanner.classList.add('visible');
+    this.levelUpTimer = 3.0;
+  }
+
+  update(dt: number): void {
     const state = this.fsm.state;
+
+    // Level-up banner countdown
+    if (this.levelUpTimer > 0) {
+      this.levelUpTimer -= dt;
+      if (this.levelUpTimer <= 0) {
+        this.levelUpBanner.classList.remove('visible');
+      }
+    }
 
     // Hide all overlays then show the active one
     if (state !== this.prevState) {
@@ -92,7 +123,7 @@ export class GameUI implements Component {
 
     switch (state) {
       case FishingState.IDLE:
-        this.prompt.textContent = 'WASD to move | Hold SPACE to cast | Drag mouse to look';
+        this.prompt.textContent = 'WASD to move | Hold SPACE to cast | TAB shop | J journal';
         this.prompt.style.display = 'block';
         if (this.catchDisplayed) {
           // Still showing catch popup

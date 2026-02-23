@@ -57,8 +57,8 @@ export class InputManager implements Component {
     this.handleKeyDown = (e: KeyboardEvent) => {
       const key = e.key.toLowerCase();
       this.keysDown.add(key);
-      // Prevent space from scrolling the page
-      if (key === ' ') e.preventDefault();
+      // Prevent space from scrolling and tab from focus-switching
+      if (key === ' ' || key === 'tab') e.preventDefault();
       this.events.emitImmediate(Events.KEY_DOWN, { key });
     };
 

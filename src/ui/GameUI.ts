@@ -1,0 +1,147 @@
+import { Component, FishingState, Events, Rarity, CatchData } from '../core/types';
+import { EventSystem } from '../core/EventSystem';
+import { FishingStateMachine } from '../fishing/FishingStateMachine';
+
+/**
+ * GameUI — manages all DOM overlay UI elements.
+ * Reads state from the fishing state machine each frame.
+ */
+export class GameUI implements Component {
+  private events: EventSystem;
+  private fsm: FishingStateMachine;
+
+  // DOM refs
+  private hud: { level: HTMLElement; fish: HTMLElement };
+  private castUI: HTMLElement;
+  private powerBar: HTMLElement;
+  private biteUI: HTMLElement;
+  private reelUI: HTMLElement;
+  private reelBar: HTMLElement;
+  private reelFishName: HTMLElement;
+  private catchPopup: HTMLElement;
+  private catchFishName: HTMLElement;
+  private catchRarity: HTMLElement;
+  private catchWeight: HTMLElement;
+  private escapedUI: HTMLElement;
+  private prompt: HTMLElement;
+
+  private fishCount = 0;
+  private prevState = FishingState.IDLE;
+  private catchDisplayed = false;
+
+  constructor(events: EventSystem, fsm: FishingStateMachine) {
+    this.events = events;
+    this.fsm = fsm;
+
+    this.hud = {
+      level: document.getElementById('hud-level')!,
+      fish: document.getElementById('hud-fish')!,
+    };
+    this.castUI = document.getElementById('cast-ui')!;
+    this.powerBar = document.getElementById('power-bar')!;
+    this.biteUI = document.getElementById('bite-ui')!;
+    this.reelUI = document.getElementById('reel-ui')!;
+    this.reelBar = document.getElementById('reel-bar')!;
+    this.reelFishName = document.getElementById('reel-fish-name')!;
+    this.catchPopup = document.getElementById('catch-popup')!;
+    this.catchFishName = document.getElementById('catch-fish-name')!;
+    this.catchRarity = document.getElementById('catch-rarity')!;
+    this.catchWeight = document.getElementById('catch-weight')!;
+    this.escapedUI = document.getElementById('escaped-ui')!;
+    this.prompt = document.getElementById('prompt')!;
+  }
+
+  init(): void {
+    this.events.on(Events.FISH_CAUGHT, (e) => {
+      const data = e.data as CatchData;
+      this.showCatch(data);
+    });
+  }
+
+  private showCatch(data: CatchData): void {
+    this.fishCount++;
+    this.hud.fish.textContent = `Fish: ${this.fishCount}`;
+
+    this.catchFishName.textContent = data.species.name;
+    this.catchFishName.style.color = `#${data.species.color.toString(16).padStart(6, '0')}`;
+
+    this.catchRarity.textContent = data.species.rarity.toUpperCase();
+    this.catchRarity.className = `rarity-${data.species.rarity}`;
+
+    this.catchWeight.textContent = `${data.weight} lbs | +${data.xp} XP | +${data.coins} coins`;
+
+    this.catchDisplayed = true;
+  }
+
+  update(_dt: number): void {
+    const state = this.fsm.state;
+
+    // Hide all overlays then show the active one
+    if (state !== this.prevState) {
+      this.castUI.classList.remove('visible');
+      this.biteUI.classList.remove('visible');
+      this.reelUI.classList.remove('visible');
+      this.escapedUI.classList.remove('visible');
+
+      if (!this.catchDisplayed) {
+        this.catchPopup.classList.remove('visible');
+      }
+
+      this.prevState = state;
+    }
+
+    switch (state) {
+      case FishingState.IDLE:
+        this.prompt.textContent = 'WASD to move | Hold SPACE to cast | Drag mouse to look';
+        this.prompt.style.display = 'block';
+        if (this.catchDisplayed) {
+          // Still showing catch popup
+        }
+        break;
+
+      case FishingState.CASTING:
+        this.prompt.style.display = 'none';
+        this.catchPopup.classList.remove('visible');
+        this.catchDisplayed = false;
+        this.castUI.classList.add('visible');
+        this.powerBar.style.width = `${this.fsm.currentCastPower}%`;
+        break;
+
+      case FishingState.FLIGHT:
+        this.castUI.classList.remove('visible');
+        this.prompt.style.display = 'none';
+        break;
+
+      case FishingState.WAITING:
+        this.prompt.textContent = 'Waiting for a bite...';
+        this.prompt.style.display = 'block';
+        break;
+
+      case FishingState.BITING:
+        this.prompt.style.display = 'none';
+        this.biteUI.classList.add('visible');
+        break;
+
+      case FishingState.REELING:
+        this.biteUI.classList.remove('visible');
+        this.reelUI.classList.add('visible');
+        this.reelBar.style.width = `${this.fsm.currentReelProgress * 100}%`;
+        this.reelFishName.textContent = this.fsm.currentReelFishName;
+        this.prompt.style.display = 'none';
+        break;
+
+      case FishingState.CAUGHT:
+        this.reelUI.classList.remove('visible');
+        this.catchPopup.classList.add('visible');
+        this.prompt.style.display = 'none';
+        break;
+
+      case FishingState.ESCAPED:
+        this.escapedUI.classList.add('visible');
+        this.prompt.style.display = 'none';
+        break;
+    }
+  }
+
+  destroy(): void {}
+}

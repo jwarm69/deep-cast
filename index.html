@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Deep Cast</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: #000; }
+    canvas { display: block; }
+
+    #game-ui {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      pointer-events: none;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      color: #fff;
+      z-index: 10;
+    }
+
+    #game-ui * { pointer-events: auto; }
+
+    /* HUD */
+    #hud {
+      position: absolute;
+      top: 16px; left: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      font-size: 14px;
+      text-shadow: 0 1px 3px rgba(0,0,0,0.8);
+    }
+
+    /* Cast power meter */
+    #cast-ui {
+      position: absolute;
+      bottom: 120px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+    }
+    #cast-ui.visible { display: flex; }
+    #power-bar-bg {
+      width: 200px; height: 16px;
+      background: rgba(0,0,0,0.6);
+      border: 2px solid rgba(255,255,255,0.3);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    #power-bar {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #4ade80, #facc15, #ef4444);
+      border-radius: 6px;
+      transition: width 0.05s linear;
+    }
+    #cast-label {
+      font-size: 13px;
+      opacity: 0.8;
+    }
+
+    /* Bite indicator */
+    #bite-ui {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+    }
+    #bite-ui.visible { display: flex; }
+    #bite-text {
+      font-size: 48px;
+      font-weight: 900;
+      color: #facc15;
+      text-shadow: 0 0 20px rgba(250,204,21,0.6), 0 2px 4px rgba(0,0,0,0.8);
+      animation: bite-pulse 0.3s ease-in-out infinite alternate;
+    }
+    #bite-hint {
+      font-size: 16px;
+      opacity: 0.9;
+    }
+    @keyframes bite-pulse {
+      from { transform: scale(1); }
+      to { transform: scale(1.1); }
+    }
+
+    /* Reel progress */
+    #reel-ui {
+      position: absolute;
+      bottom: 120px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+    }
+    #reel-ui.visible { display: flex; }
+    #reel-bar-bg {
+      width: 260px; height: 20px;
+      background: rgba(0,0,0,0.6);
+      border: 2px solid rgba(255,255,255,0.3);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    #reel-bar {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #38bdf8, #818cf8);
+      border-radius: 8px;
+      transition: width 0.05s linear;
+    }
+    #reel-label {
+      font-size: 14px;
+      opacity: 0.8;
+    }
+    #reel-fish-name {
+      font-size: 16px;
+      font-weight: 600;
+    }
+
+    /* Catch popup */
+    #catch-popup {
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      background: rgba(0,0,0,0.85);
+      border: 2px solid rgba(255,255,255,0.2);
+      border-radius: 16px;
+      padding: 32px 48px;
+      backdrop-filter: blur(8px);
+    }
+    #catch-popup.visible { display: flex; }
+    #catch-title {
+      font-size: 20px;
+      font-weight: 300;
+      text-transform: uppercase;
+      letter-spacing: 4px;
+      opacity: 0.7;
+    }
+    #catch-fish-name {
+      font-size: 36px;
+      font-weight: 800;
+    }
+    #catch-rarity {
+      font-size: 14px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      padding: 4px 16px;
+      border-radius: 12px;
+    }
+    #catch-weight {
+      font-size: 16px;
+      opacity: 0.7;
+    }
+    #catch-dismiss {
+      font-size: 13px;
+      opacity: 0.5;
+      margin-top: 8px;
+    }
+    .rarity-common { color: #a3a3a3; border: 1px solid #525252; background: rgba(82,82,82,0.3); }
+    .rarity-uncommon { color: #4ade80; border: 1px solid #16a34a; background: rgba(22,163,74,0.2); }
+    .rarity-rare { color: #38bdf8; border: 1px solid #0284c7; background: rgba(2,132,199,0.2); }
+    .rarity-epic { color: #a78bfa; border: 1px solid #7c3aed; background: rgba(124,58,237,0.2); }
+    .rarity-legendary { color: #fbbf24; border: 1px solid #d97706; background: rgba(217,119,6,0.2); }
+
+    /* Prompt */
+    #prompt {
+      position: absolute;
+      bottom: 60px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 15px;
+      opacity: 0.6;
+      text-shadow: 0 1px 3px rgba(0,0,0,0.8);
+      text-align: center;
+    }
+
+    /* Escaped fish */
+    #escaped-ui {
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      display: none;
+      font-size: 28px;
+      font-weight: 700;
+      color: #ef4444;
+      text-shadow: 0 0 12px rgba(239,68,68,0.5), 0 2px 4px rgba(0,0,0,0.8);
+    }
+    #escaped-ui.visible { display: block; }
+  </style>
+</head>
+<body>
+  <div id="game-container"></div>
+  <div id="game-ui">
+    <div id="hud">
+      <div id="hud-level">Level 1</div>
+      <div id="hud-fish">Fish: 0</div>
+    </div>
+    <div id="cast-ui">
+      <div id="cast-label">Hold SPACE to charge, release to cast</div>
+      <div id="power-bar-bg"><div id="power-bar"></div></div>
+    </div>
+    <div id="bite-ui">
+      <div id="bite-text">BITE!</div>
+      <div id="bite-hint">Press SPACE or click!</div>
+    </div>
+    <div id="reel-ui">
+      <div id="reel-fish-name"></div>
+      <div id="reel-bar-bg"><div id="reel-bar"></div></div>
+      <div id="reel-label">Hold SPACE or click to reel</div>
+    </div>
+    <div id="catch-popup">
+      <div id="catch-title">You caught</div>
+      <div id="catch-fish-name"></div>
+      <div id="catch-rarity"></div>
+      <div id="catch-weight"></div>
+      <div id="catch-dismiss">Press SPACE or click to continue</div>
+    </div>
+    <div id="escaped-ui">The fish escaped!</div>
+    <div id="prompt">WASD to move | Hold SPACE to cast | Drag mouse to look</div>
+  </div>
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>

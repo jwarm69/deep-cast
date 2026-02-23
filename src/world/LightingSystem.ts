@@ -1,8 +1,11 @@
 import * as THREE from 'three';
 import { Component } from '../core/types';
+import { BiomeConfig } from '../data/biome-config';
 
 export class LightingSystem implements Component {
   private scene: THREE.Scene;
+  private ambient!: THREE.AmbientLight;
+  private hemi!: THREE.HemisphereLight;
   private sun!: THREE.DirectionalLight;
 
   constructor(scene: THREE.Scene) {
@@ -11,12 +14,12 @@ export class LightingSystem implements Component {
 
   init(): void {
     // Ambient fill
-    const ambient = new THREE.AmbientLight(0x8ec7e8, 0.5);
-    this.scene.add(ambient);
+    this.ambient = new THREE.AmbientLight(0x8ec7e8, 0.5);
+    this.scene.add(this.ambient);
 
     // Hemisphere light for sky/ground color variation
-    const hemi = new THREE.HemisphereLight(0x87ceeb, 0x3a5f0b, 0.4);
-    this.scene.add(hemi);
+    this.hemi = new THREE.HemisphereLight(0x87ceeb, 0x3a5f0b, 0.4);
+    this.scene.add(this.hemi);
 
     // Sun — directional light with shadows
     this.sun = new THREE.DirectionalLight(0xfff4e6, 1.4);
@@ -31,6 +34,20 @@ export class LightingSystem implements Component {
     this.sun.shadow.camera.bottom = -40;
     this.sun.shadow.bias = -0.001;
     this.scene.add(this.sun);
+  }
+
+  /** Update all light params to match a biome config */
+  setConfig(config: BiomeConfig): void {
+    this.ambient.color.set(config.ambientColor);
+    this.ambient.intensity = config.ambientIntensity;
+
+    this.hemi.color.set(config.hemiSkyColor);
+    this.hemi.groundColor.set(config.hemiGroundColor);
+    this.hemi.intensity = config.hemiIntensity;
+
+    this.sun.color.set(config.sunColor);
+    this.sun.intensity = config.sunIntensity;
+    this.sun.position.set(...config.sunPosition);
   }
 
   update(_dt: number): void {}

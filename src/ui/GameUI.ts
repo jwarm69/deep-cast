@@ -2,6 +2,7 @@ import { Component, FishingState, Events, Rarity, CatchData } from '../core/type
 import { EventSystem } from '../core/EventSystem';
 import { FishingStateMachine } from '../fishing/FishingStateMachine';
 import { PlayerState } from '../state/PlayerState';
+import { BIOME_CONFIGS } from '../data/biome-config';
 
 /**
  * GameUI — manages all DOM overlay UI elements.
@@ -13,7 +14,7 @@ export class GameUI implements Component {
   private player: PlayerState;
 
   // DOM refs
-  private hud: { level: HTMLElement; fish: HTMLElement; coins: HTMLElement; xpBar: HTMLElement };
+  private hud: { level: HTMLElement; fish: HTMLElement; coins: HTMLElement; xpBar: HTMLElement; biome: HTMLElement };
   private castUI: HTMLElement;
   private powerBar: HTMLElement;
   private biteUI: HTMLElement;
@@ -42,6 +43,7 @@ export class GameUI implements Component {
       fish: document.getElementById('hud-fish')!,
       coins: document.getElementById('hud-coins')!,
       xpBar: document.getElementById('hud-xp-bar')!,
+      biome: document.getElementById('hud-biome')!,
     };
     this.castUI = document.getElementById('cast-ui')!;
     this.powerBar = document.getElementById('power-bar')!;
@@ -66,6 +68,9 @@ export class GameUI implements Component {
     this.events.on(Events.LEVEL_UP, (e) => {
       this.showLevelUp(e.data.newLevel);
     });
+    this.events.on(Events.BIOME_CHANGE, () => {
+      this.syncHUD();
+    });
     // Sync HUD from loaded save
     this.syncHUD();
   }
@@ -75,6 +80,7 @@ export class GameUI implements Component {
     this.hud.fish.textContent = `Fish: ${this.player.totalFishCaught}`;
     this.hud.coins.textContent = `${this.player.coins} coins`;
     this.hud.xpBar.style.width = `${this.player.levelProgress * 100}%`;
+    this.hud.biome.textContent = BIOME_CONFIGS[this.player.currentTerrain].name;
   }
 
   private showCatch(data: CatchData): void {

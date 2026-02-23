@@ -90,6 +90,11 @@ export const Events = {
   EQUIPMENT_PURCHASED: 'player:equipment_purchased',
   EQUIPMENT_EQUIPPED: 'player:equipment_equipped',
 
+  // Biome & boats
+  BIOME_CHANGE: 'world:biome_change',
+  BOAT_PURCHASED: 'player:boat_purchased',
+  BOAT_EQUIPPED: 'player:boat_equipped',
+
   // Overlays
   SHOP_TOGGLE: 'ui:shop_toggle',
   JOURNAL_TOGGLE: 'ui:journal_toggle',

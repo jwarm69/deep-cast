@@ -43,6 +43,14 @@ export class Renderer implements Component {
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   }
 
+  /** Update sky background and fog for biome transitions */
+  setBiomeAtmosphere(skyColor: number, fogColor: number, fogDensity: number): void {
+    (this.scene.background as THREE.Color).set(skyColor);
+    const fog = this.scene.fog as THREE.FogExp2;
+    fog.color.set(fogColor);
+    fog.density = fogDensity;
+  }
+
   update(_dt: number): void {}
 
   destroy(): void {

@@ -15,6 +15,12 @@ export class FishRaritySystem {
 
   constructor(species: FishSpecies[] = LAKE_FISH) {
     this.speciesByRarity = new Map();
+    this.setSpecies(species);
+  }
+
+  /** Swap the active fish pool (for biome transitions) */
+  setSpecies(species: FishSpecies[]): void {
+    this.speciesByRarity = new Map();
     for (const rarity of Object.values(Rarity)) {
       this.speciesByRarity.set(rarity, species.filter((s) => s.rarity === rarity));
     }

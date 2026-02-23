@@ -1,10 +1,11 @@
-import { Component, Events, CatchData } from '../core/types';
+import { Component, Events, CatchData, FishingState } from '../core/types';
 import { EventSystem } from '../core/EventSystem';
 import { xpForLevel, totalXpForLevel } from '../data/progression-tables';
-import { RODS, LURES, LINES, RodData, LureData, LineData } from '../data/equipment';
+import { RODS, LURES, LINES, BOATS, RodData, LureData, LineData, BoatData } from '../data/equipment';
+import { TerrainType, BIOME_CONFIGS } from '../data/biome-config';
 
 const SAVE_KEY = 'deep-cast-save';
-const SAVE_VERSION = 1;
+const SAVE_VERSION = 2;
 
 export interface FishJournalEntry {
   speciesId: string;
@@ -26,6 +27,10 @@ interface SaveData {
   activeLineId: string;
   journal: Record<string, FishJournalEntry>;
   totalFishCaught: number;
+  // v2 additions
+  currentTerrain: TerrainType;
+  ownedBoats: string[];
+  activeBoatId: string | null;
 }
 
 export class PlayerState implements Component {
@@ -45,6 +50,11 @@ export class PlayerState implements Component {
   activeLineId = 'basic_line';
 
   journal: Map<string, FishJournalEntry> = new Map();
+
+  // Biome & boats
+  currentTerrain: TerrainType = 'lake';
+  ownedBoats: Set<string> = new Set();
+  activeBoatId: string | null = null;
 
   constructor(events: EventSystem) {
     this.events = events;
@@ -140,6 +150,11 @@ export class PlayerState implements Component {
     return LINES.find((l) => l.id === this.activeLineId) ?? LINES[0];
   }
 
+  get activeBoat(): BoatData | null {
+    if (!this.activeBoatId) return null;
+    return BOATS.find((b) => b.id === this.activeBoatId) ?? null;
+  }
+
   // --- Equipment actions ---
 
   canPurchase(cost: number, levelRequired: number): boolean {
@@ -185,6 +200,19 @@ export class PlayerState implements Component {
     return true;
   }
 
+  purchaseBoat(id: string): boolean {
+    const boat = BOATS.find((b) => b.id === id);
+    if (!boat || this.ownedBoats.has(id)) return false;
+    if (!this.canPurchase(boat.cost, boat.levelRequired)) return false;
+    this.coins -= boat.cost;
+    this.ownedBoats.add(id);
+    this.activeBoatId = id;
+    this.events.emit(Events.BOAT_PURCHASED, { boat });
+    this.events.emit(Events.COINS_CHANGED, { coins: this.coins });
+    this.save();
+    return true;
+  }
+
   equipRod(id: string): void {
     if (this.ownedRods.has(id)) {
       this.activeRodId = id;
@@ -209,6 +237,31 @@ export class PlayerState implements Component {
     }
   }
 
+  equipBoat(id: string): void {
+    if (this.ownedBoats.has(id)) {
+      this.activeBoatId = id;
+      this.events.emit(Events.BOAT_EQUIPPED, { id });
+      this.save();
+    }
+  }
+
+  /** Travel to a new biome. Returns false if requirements not met. */
+  travelTo(terrain: TerrainType, fishingState: FishingState): boolean {
+    if (terrain === this.currentTerrain) return false;
+    if (fishingState !== FishingState.IDLE) return false;
+
+    const config = BIOME_CONFIGS[terrain];
+    if (this.level < config.levelRequired) return false;
+    if (this.coins < config.travelCost) return false;
+
+    this.coins -= config.travelCost;
+    this.currentTerrain = terrain;
+    this.events.emit(Events.COINS_CHANGED, { coins: this.coins });
+    this.events.emit(Events.BIOME_CHANGE, { terrain });
+    this.save();
+    return true;
+  }
+
   // --- Persistence ---
 
   private save(): void {
@@ -225,6 +278,9 @@ export class PlayerState implements Component {
       activeLineId: this.activeLineId,
       journal: Object.fromEntries(this.journal),
       totalFishCaught: this.totalFishCaught,
+      currentTerrain: this.currentTerrain,
+      ownedBoats: [...this.ownedBoats],
+      activeBoatId: this.activeBoatId,
     };
     try {
       localStorage.setItem(SAVE_KEY, JSON.stringify(data));
@@ -237,7 +293,16 @@ export class PlayerState implements Component {
     try {
       const raw = localStorage.getItem(SAVE_KEY);
       if (!raw) return;
-      const data: SaveData = JSON.parse(raw);
+      const data = JSON.parse(raw);
+
+      // v1 → v2 migration
+      if (data.version === 1) {
+        data.version = 2;
+        data.currentTerrain = 'lake';
+        data.ownedBoats = [];
+        data.activeBoatId = null;
+      }
+
       if (data.version !== SAVE_VERSION) return;
 
       this.level = data.level;
@@ -251,6 +316,9 @@ export class PlayerState implements Component {
       this.activeLureId = data.activeLureId;
       this.activeLineId = data.activeLineId;
       this.journal = new Map(Object.entries(data.journal));
+      this.currentTerrain = data.currentTerrain;
+      this.ownedBoats = new Set(data.ownedBoats);
+      this.activeBoatId = data.activeBoatId;
     } catch {
       // Corrupt save — start fresh
     }

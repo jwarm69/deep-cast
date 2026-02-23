@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { Component } from '../core/types';
+import { BiomeConfig } from '../data/biome-config';
 
 const waterVertexShader = `
   uniform float uTime;
@@ -118,6 +119,15 @@ export class WaterSystem implements Component {
       Math.sin((x + z) * 0.5 + t * 0.4) * 0.08 +
       Math.sin(x * 2.0 + z * 1.5 + t * 1.2) * 0.04
     );
+  }
+
+  /** Update water colors/sun for biome transitions */
+  setConfig(config: BiomeConfig): void {
+    this.material.uniforms.uDeepColor.value.set(config.waterDeepColor);
+    this.material.uniforms.uShallowColor.value.set(config.waterShallowColor);
+    this.material.uniforms.uSunDirection.value
+      .set(...config.waterSunDirection)
+      .normalize();
   }
 
   update(dt: number): void {

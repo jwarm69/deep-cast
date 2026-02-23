@@ -1,4 +1,4 @@
-import { Component, FishingState, Events, CatchData } from '../core/types';
+import { Component, FishSpecies, FishingState, Events, CatchData } from '../core/types';
 import { EventSystem } from '../core/EventSystem';
 import { InputManager } from '../core/InputManager';
 import { FishRaritySystem } from '../fish/FishRaritySystem';
@@ -65,6 +65,11 @@ export class FishingStateMachine implements Component {
 
   setPlayerState(player: PlayerState): void {
     this.player = player;
+  }
+
+  /** Swap the active fish pool (for biome transitions) */
+  setFishPool(species: FishSpecies[]): void {
+    this.raritySystem.setSpecies(species);
   }
 
   /** True if space or left-click is active (for fishing actions) */
@@ -193,8 +198,9 @@ export class FishingStateMachine implements Component {
 
     if (this.actionDown) {
       this.bobber.setSinking(false);
-      const rarityBonus = this.player?.activeLure.rareBonusChance ?? 0;
-      const fish = this.raritySystem.rollFish(rarityBonus);
+      const lureBonus = this.player?.activeLure.rareBonusChance ?? 0;
+      const boatBonus = this.player?.activeBoat?.rarityBoost ?? 0;
+      const fish = this.raritySystem.rollFish(lureBonus + boatBonus);
       this.reelDifficulty = fish.reelDifficulty;
       this.reelFishName = fish.name;
       this.reelProgress = 0;

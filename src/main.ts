@@ -16,6 +16,8 @@ import { ParticleSystem, FX } from './effects/ParticleSystem';
 import { GameUI } from './ui/GameUI';
 import { ShopUI } from './ui/ShopUI';
 import { JournalUI } from './ui/JournalUI';
+import { BIOME_CONFIGS, TerrainType } from './data/biome-config';
+import { FISH_BY_TERRAIN } from './data/fish-species';
 
 async function main() {
   const container = document.getElementById('game-container')!;
@@ -29,16 +31,16 @@ async function main() {
   lighting.init();
   engine.addComponent(lighting);
 
-  const terrain = new TerrainSystem(scene);
-  terrain.init();
-  engine.addComponent(terrain);
+  const terrainSystem = new TerrainSystem(scene);
+  terrainSystem.init();
+  engine.addComponent(terrainSystem);
 
   const water = new WaterSystem(scene);
   water.init();
   engine.addComponent(water);
 
   // Entities
-  const character = new Character(scene, terrain.characterPosition, engine.input);
+  const character = new Character(scene, terrainSystem.characterPosition, engine.input);
   character.init();
   engine.addComponent(character);
 
@@ -99,6 +101,38 @@ async function main() {
   fsm.setPlayerState(player);
   engine.addComponent(fsm);
 
+  // --- Biome system ---
+
+  function applyBiome(terrain: TerrainType): void {
+    const config = BIOME_CONFIGS[terrain];
+
+    // Atmosphere (sky + fog)
+    engine.renderer.setBiomeAtmosphere(config.skyColor, config.fogColor, config.fogDensity);
+
+    // Lighting
+    lighting.setConfig(config);
+
+    // Water
+    water.setConfig(config);
+
+    // Terrain — full destroy/rebuild
+    terrainSystem.rebuild(config);
+
+    // Fish pool
+    fsm.setFishPool(FISH_BY_TERRAIN[terrain]);
+
+    // Reposition character on dock
+    character.group.position.copy(terrainSystem.characterPosition);
+  }
+
+  // Apply saved biome on startup
+  applyBiome(player.currentTerrain);
+
+  // Listen for biome changes (from shop travel)
+  engine.events.on(Events.BIOME_CHANGE, (e) => {
+    applyBiome(e.data.terrain as TerrainType);
+  });
+
   // --- Wire particle/shake effects to events ---
 
   // Track bobber position for effects
@@ -144,7 +178,7 @@ async function main() {
   ui.init();
   engine.addComponent(ui);
 
-  const shop = new ShopUI(engine.events, engine.input, player);
+  const shop = new ShopUI(engine.events, engine.input, player, fsm);
   shop.init();
   engine.addComponent(shop);
 

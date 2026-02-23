@@ -1,8 +1,9 @@
-import { Component, Events, Rarity } from '../core/types';
+import { Component, Events, Rarity, FishSpecies } from '../core/types';
 import { EventSystem } from '../core/EventSystem';
 import { InputManager } from '../core/InputManager';
 import { PlayerState } from '../state/PlayerState';
-import { LAKE_FISH } from '../data/fish-species';
+import { ALL_FISH, FISH_BY_TERRAIN } from '../data/fish-species';
+import { BIOME_CONFIGS, TerrainType } from '../data/biome-config';
 
 const RARITY_COLORS: Record<Rarity, string> = {
   [Rarity.COMMON]: '#a3a3a3',
@@ -64,7 +65,7 @@ export class JournalUI implements Component {
     this.overlay.innerHTML = '';
 
     const caught = this.player.journal.size;
-    const total = LAKE_FISH.length;
+    const total = ALL_FISH.length;
     const pct = total > 0 ? Math.round((caught / total) * 100) : 0;
 
     // Header
@@ -85,25 +86,53 @@ export class JournalUI implements Component {
     barBg.appendChild(barFill);
     this.overlay.appendChild(barBg);
 
+    // Biome sections
+    const biomes: TerrainType[] = ['lake', 'tropical', 'arctic'];
+    for (const terrain of biomes) {
+      this.overlay.appendChild(this.buildBiomeSection(terrain));
+    }
+  }
+
+  private buildBiomeSection(terrain: TerrainType): HTMLElement {
+    const config = BIOME_CONFIGS[terrain];
+    const fish = FISH_BY_TERRAIN[terrain];
+    const biomeCaught = fish.filter((f) => this.player.journal.has(f.id)).length;
+    const accentColor = `#${config.skyColor.toString(16).padStart(6, '0')}`;
+
+    const section = document.createElement('div');
+    section.style.cssText = 'width:100%; max-width:860px; margin-bottom:32px;';
+
+    // Section header
+    const sectionHeader = document.createElement('div');
+    sectionHeader.style.cssText = `
+      display:flex; align-items:center; gap:12px; margin-bottom:14px;
+      padding-bottom:8px; border-bottom:1px solid rgba(255,255,255,0.1);
+    `;
+    sectionHeader.innerHTML = `
+      <div style="width:12px; height:12px; border-radius:3px; background:${accentColor};"></div>
+      <span style="font-size:18px; font-weight:700;">${config.name}</span>
+      <span style="font-size:14px; opacity:0.5; margin-left:auto;">${biomeCaught} / ${fish.length}</span>
+    `;
+    section.appendChild(sectionHeader);
+
     // Fish grid
     const grid = document.createElement('div');
     grid.style.cssText = `
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
       gap: 12px;
-      width: 100%;
-      max-width: 860px;
     `;
 
-    for (const fish of LAKE_FISH) {
-      const entry = this.player.journal.get(fish.id);
-      grid.appendChild(this.buildCard(fish, entry));
+    for (const f of fish) {
+      const entry = this.player.journal.get(f.id);
+      grid.appendChild(this.buildCard(f, entry));
     }
 
-    this.overlay.appendChild(grid);
+    section.appendChild(grid);
+    return section;
   }
 
-  private buildCard(fish: typeof LAKE_FISH[0], entry: { timesCaught: number; bestWeight: number } | undefined): HTMLElement {
+  private buildCard(fish: FishSpecies, entry: { timesCaught: number; bestWeight: number } | undefined): HTMLElement {
     const discovered = !!entry;
     const color = RARITY_COLORS[fish.rarity];
     const bg = discovered ? RARITY_BG[fish.rarity] : 'rgba(255,255,255,0.03)';

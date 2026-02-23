@@ -52,3 +52,21 @@ export const LINES: LineData[] = [
   { id: 'steel_leader', name: 'Steel Leader', tier: 4, maxFishWeight: 50, cost: 700, levelRequired: 12 },
   { id: 'titan_weave', name: 'Titan Weave', tier: 5, maxFishWeight: 100, cost: 1500, levelRequired: 18 },
 ];
+
+export interface BoatData {
+  id: string;
+  name: string;
+  tier: number;
+  speed: number;
+  rarityBoost: number; // 0-1, passive rarity bonus
+  cost: number;
+  levelRequired: number;
+}
+
+export const BOATS: BoatData[] = [
+  { id: 'rowboat', name: 'Rowboat', tier: 1, speed: 3, rarityBoost: 0, cost: 0, levelRequired: 5 },
+  { id: 'skiff', name: 'Skiff', tier: 2, speed: 5, rarityBoost: 0.03, cost: 400, levelRequired: 8 },
+  { id: 'sailboat', name: 'Sailboat', tier: 3, speed: 7, rarityBoost: 0.07, cost: 1000, levelRequired: 12 },
+  { id: 'speedboat', name: 'Speedboat', tier: 4, speed: 12, rarityBoost: 0.11, cost: 2500, levelRequired: 18 },
+  { id: 'research_vessel', name: 'Research Vessel', tier: 5, speed: 8, rarityBoost: 0.15, cost: 6000, levelRequired: 25 },
+];

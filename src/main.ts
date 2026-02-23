@@ -1,4 +1,6 @@
+import * as THREE from 'three';
 import { Engine } from './core/Engine';
+import { Events } from './core/types';
 import { WaterSystem } from './world/WaterSystem';
 import { TerrainSystem } from './world/TerrainSystem';
 import { LightingSystem } from './world/LightingSystem';
@@ -6,8 +8,11 @@ import { Character } from './entities/Character';
 import { FishingRod } from './entities/FishingRod';
 import { FishingLine } from './entities/FishingLine';
 import { Bobber } from './entities/Bobber';
+import { CatchFish } from './entities/CatchFish';
 import { FishingStateMachine } from './fishing/FishingStateMachine';
 import { PlayerState } from './state/PlayerState';
+import { SoundSystem } from './audio/SoundSystem';
+import { ParticleSystem, FX } from './effects/ParticleSystem';
 import { GameUI } from './ui/GameUI';
 import { ShopUI } from './ui/ShopUI';
 import { JournalUI } from './ui/JournalUI';
@@ -59,15 +64,24 @@ async function main() {
   // Camera follows character
   const originalCameraUpdate = engine.camera.update.bind(engine.camera);
   engine.camera.update = (dt: number) => {
-    // Update camera follow target to character position
     const charPos = character.group.position;
     engine.camera.setTarget(charPos.clone().setY(charPos.y + 2.0));
-
-    // Pass camera angle to character for relative movement
     character.setCameraTheta(engine.camera.theta);
-
     originalCameraUpdate(dt);
   };
+
+  // Effects
+  const particles = new ParticleSystem(scene);
+  particles.init();
+  engine.addComponent(particles);
+
+  const catchFish = new CatchFish(scene, engine.events);
+  catchFish.init();
+  engine.addComponent(catchFish);
+
+  const sound = new SoundSystem(engine.events);
+  sound.init();
+  engine.addComponent(sound);
 
   // Player state (progression, equipment, journal, persistence)
   const player = new PlayerState(engine.events);
@@ -84,6 +98,46 @@ async function main() {
   );
   fsm.setPlayerState(player);
   engine.addComponent(fsm);
+
+  // --- Wire particle/shake effects to events ---
+
+  // Track bobber position for effects
+  let lastBobberPos = new THREE.Vector3(0, 0.5, 10);
+
+  engine.events.on(Events.BOBBER_LAND, () => {
+    lastBobberPos.set(bobber.position.x, 0.3, bobber.position.z);
+    FX.splash(lastBobberPos, particles);
+  });
+
+  engine.events.on(Events.FISH_BITE, () => {
+    const bitePos = new THREE.Vector3(bobber.position.x, 0.5, bobber.position.z);
+    FX.biteBubbles(bitePos, particles);
+    engine.camera.shake(0.15, 0.3); // Light shake on bite
+  });
+
+  engine.events.on(Events.FISH_CAUGHT, (e) => {
+    const pos = new THREE.Vector3(bobber.position.x, 0.5, bobber.position.z);
+    const speciesColor = new THREE.Color(e.data.species.color);
+    FX.catchSparkle(pos, particles, speciesColor);
+    engine.camera.shake(0.4, 0.5); // Strong shake on catch
+    catchFish.setBobberPos(pos.x, pos.z);
+  });
+
+  engine.events.on(Events.LEVEL_UP, () => {
+    const charPos = character.group.position.clone();
+    charPos.y += 2;
+    FX.levelUpBurst(charPos, particles);
+    engine.camera.shake(0.3, 0.6);
+  });
+
+  // Update reel sound pitch each frame while reeling
+  const originalFsmUpdate = fsm.update.bind(fsm);
+  fsm.update = (dt: number) => {
+    originalFsmUpdate(dt);
+    if (fsm.currentReelProgress > 0 && fsm.state === 'reeling') {
+      sound.updateReelPitch(fsm.currentReelProgress);
+    }
+  };
 
   // UI
   const ui = new GameUI(engine.events, fsm, player);

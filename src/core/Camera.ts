@@ -26,6 +26,11 @@ export class Camera implements Component {
   private currentPosition = new THREE.Vector3();
   private currentLookAt = new THREE.Vector3();
 
+  // Screen shake
+  private shakeIntensity = 0;
+  private shakeDuration = 0;
+  private shakeTimer = 0;
+
   private handleResize: () => void;
 
   constructor(input: InputManager) {
@@ -93,7 +98,25 @@ export class Camera implements Component {
     this.currentLookAt.lerp(this.target, lerpFactor);
 
     this.camera.position.copy(this.currentPosition);
+
+    // Apply screen shake offset
+    if (this.shakeTimer > 0) {
+      this.shakeTimer -= dt;
+      const decay = Math.max(0, this.shakeTimer / this.shakeDuration);
+      const intensity = this.shakeIntensity * decay;
+      this.camera.position.x += (Math.random() - 0.5) * intensity;
+      this.camera.position.y += (Math.random() - 0.5) * intensity;
+      this.camera.position.z += (Math.random() - 0.5) * intensity * 0.5;
+    }
+
     this.camera.lookAt(this.currentLookAt);
+  }
+
+  /** Trigger a screen shake effect */
+  shake(intensity: number, duration: number): void {
+    this.shakeIntensity = intensity;
+    this.shakeDuration = duration;
+    this.shakeTimer = duration;
   }
 
   destroy(): void {

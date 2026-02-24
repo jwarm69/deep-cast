@@ -625,12 +625,160 @@ export const ARCTIC_FISH: FishSpecies[] = [
   },
 ];
 
-/** All fish combined */
-export const ALL_FISH: FishSpecies[] = [...LAKE_FISH, ...TROPICAL_FISH, ...ARCTIC_FISH];
+/** 3 deep-water lake fish (Rare, Epic, Legendary) */
+export const LAKE_DEEP_FISH: FishSpecies[] = [
+  {
+    id: 'giant_paddlefish',
+    name: 'Giant Paddlefish',
+    rarity: Rarity.RARE,
+    terrain: 'lake',
+    minWeight: 15.0,
+    maxWeight: 60.0,
+    reelDifficulty: 0.68,
+    description: 'A prehistoric giant with a paddle-shaped snout. Only found in the deepest water.',
+    xpReward: 90,
+    coinReward: [80, 150],
+    color: 0x607d8b,
+    deepWater: true,
+  },
+  {
+    id: 'deepwater_serpent_eel',
+    name: 'Deepwater Serpent Eel',
+    rarity: Rarity.EPIC,
+    terrain: 'lake',
+    minWeight: 8.0,
+    maxWeight: 35.0,
+    reelDifficulty: 0.78,
+    description: 'A sinuous eel that coils through the abyss. Its bioluminescent stripes pulse in the dark.',
+    xpReward: 220,
+    coinReward: [200, 380],
+    color: 0x26c6da,
+    deepWater: true,
+  },
+  {
+    id: 'abyssal_catfish',
+    name: 'Abyssal Catfish',
+    rarity: Rarity.LEGENDARY,
+    terrain: 'lake',
+    minWeight: 20.0,
+    maxWeight: 80.0,
+    reelDifficulty: 0.92,
+    description: 'A gargantuan whiskered beast from the lake floor. Legends say it devours anchors whole.',
+    xpReward: 600,
+    coinReward: [550, 1100],
+    color: 0x37474f,
+    deepWater: true,
+  },
+];
 
-/** Fish grouped by terrain */
+/** 3 deep-water tropical fish (Rare, Epic, Legendary) */
+export const TROPICAL_DEEP_FISH: FishSpecies[] = [
+  {
+    id: 'abyss_anglerfish',
+    name: 'Abyss Anglerfish',
+    rarity: Rarity.RARE,
+    terrain: 'tropical',
+    minWeight: 5.0,
+    maxWeight: 25.0,
+    reelDifficulty: 0.65,
+    description: 'A nightmarish deep-sea predator with a glowing lure dangling from its forehead.',
+    xpReward: 85,
+    coinReward: [75, 145],
+    color: 0x1b5e20,
+    deepWater: true,
+  },
+  {
+    id: 'phantom_manta',
+    name: 'Phantom Manta',
+    rarity: Rarity.EPIC,
+    terrain: 'tropical',
+    minWeight: 30.0,
+    maxWeight: 150.0,
+    reelDifficulty: 0.8,
+    description: 'A ghostly manta ray that glides silently through the deep. Its wings shimmer with starlight.',
+    xpReward: 230,
+    coinReward: [210, 400],
+    color: 0x7c4dff,
+    deepWater: true,
+  },
+  {
+    id: 'leviathan_grouper',
+    name: 'Leviathan Grouper',
+    rarity: Rarity.LEGENDARY,
+    terrain: 'tropical',
+    minWeight: 80.0,
+    maxWeight: 300.0,
+    reelDifficulty: 0.93,
+    description: 'The undisputed lord of the deep reef. A living submarine of muscle and teeth.',
+    xpReward: 650,
+    coinReward: [600, 1200],
+    color: 0x4e342e,
+    deepWater: true,
+  },
+];
+
+/** 3 deep-water arctic fish (Rare, Epic, Legendary) */
+export const ARCTIC_DEEP_FISH: FishSpecies[] = [
+  {
+    id: 'glacial_oarfish',
+    name: 'Glacial Oarfish',
+    rarity: Rarity.RARE,
+    terrain: 'arctic',
+    minWeight: 25.0,
+    maxWeight: 120.0,
+    reelDifficulty: 0.7,
+    description: 'A ribbon-like serpent of the frozen deep. Sailors once mistook it for a sea monster.',
+    xpReward: 95,
+    coinReward: [85, 155],
+    color: 0xb0bec5,
+    deepWater: true,
+  },
+  {
+    id: 'kraken_squid',
+    name: 'Kraken Squid',
+    rarity: Rarity.EPIC,
+    terrain: 'arctic',
+    minWeight: 15.0,
+    maxWeight: 70.0,
+    reelDifficulty: 0.82,
+    description: 'An enormous squid with frost-blue tentacles. It fights like ten fish at once.',
+    xpReward: 240,
+    coinReward: [220, 420],
+    color: 0x283593,
+    deepWater: true,
+  },
+  {
+    id: 'permafrost_titan',
+    name: 'The Permafrost Titan',
+    rarity: Rarity.LEGENDARY,
+    terrain: 'arctic',
+    minWeight: 50.0,
+    maxWeight: 250.0,
+    reelDifficulty: 0.95,
+    description: 'A colossal armored fish entombed in living ice. The ultimate catch of the frozen deep.',
+    xpReward: 700,
+    coinReward: [650, 1300],
+    color: 0x00bcd4,
+    deepWater: true,
+  },
+];
+
+/** All fish combined (shore + deep) */
+export const ALL_FISH: FishSpecies[] = [
+  ...LAKE_FISH, ...TROPICAL_FISH, ...ARCTIC_FISH,
+  ...LAKE_DEEP_FISH, ...TROPICAL_DEEP_FISH, ...ARCTIC_DEEP_FISH,
+];
+
+/** Shore fish grouped by terrain */
 export const FISH_BY_TERRAIN: Record<TerrainType, FishSpecies[]> = {
   lake: LAKE_FISH,
   tropical: TROPICAL_FISH,
   arctic: ARCTIC_FISH,
+};
+
+/** Deep-water exclusive fish by terrain */
+export const DEEP_FISH_BY_TERRAIN: Record<TerrainType, FishSpecies[]> = {
+  lake: LAKE_DEEP_FISH,
+  tropical: TROPICAL_DEEP_FISH,
+  arctic: ARCTIC_DEEP_FISH,
 };

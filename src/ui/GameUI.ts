@@ -1,4 +1,4 @@
-import { Component, FishingState, Events, Rarity, CatchData } from '../core/types';
+import { Component, FishingState, Events, Rarity, CatchData, PlayerMode } from '../core/types';
 import { EventSystem } from '../core/EventSystem';
 import { FishingStateMachine } from '../fishing/FishingStateMachine';
 import { PlayerState } from '../state/PlayerState';
@@ -28,10 +28,13 @@ export class GameUI implements Component {
   private escapedUI: HTMLElement;
   private prompt: HTMLElement;
   private levelUpBanner: HTMLElement;
+  private deepWaterBadge: HTMLElement;
 
   private prevState = FishingState.IDLE;
   private catchDisplayed = false;
   private levelUpTimer = 0;
+  private playerMode = PlayerMode.SHORE;
+  private isDeepWater = false;
 
   constructor(events: EventSystem, fsm: FishingStateMachine, player: PlayerState) {
     this.events = events;
@@ -58,6 +61,21 @@ export class GameUI implements Component {
     this.escapedUI = document.getElementById('escaped-ui')!;
     this.prompt = document.getElementById('prompt')!;
     this.levelUpBanner = document.getElementById('level-up-banner')!;
+
+    // Create deep water badge dynamically
+    this.deepWaterBadge = document.createElement('div');
+    this.deepWaterBadge.id = 'deep-water-badge';
+    this.deepWaterBadge.textContent = 'DEEP WATER';
+    this.deepWaterBadge.style.cssText = `
+      position: absolute; top: 16px; right: 16px;
+      padding: 6px 14px; border-radius: 6px;
+      background: rgba(0, 20, 60, 0.8); border: 1px solid rgba(56, 189, 248, 0.6);
+      color: #38bdf8; font-size: 13px; font-weight: 700;
+      letter-spacing: 2px; text-transform: uppercase;
+      text-shadow: 0 0 8px rgba(56, 189, 248, 0.5);
+      display: none;
+    `;
+    document.getElementById('game-ui')!.appendChild(this.deepWaterBadge);
   }
 
   init(): void {
@@ -70,6 +88,22 @@ export class GameUI implements Component {
     });
     this.events.on(Events.BIOME_CHANGE, () => {
       this.syncHUD();
+    });
+    this.events.on(Events.BOARD_BOAT, () => {
+      this.playerMode = PlayerMode.BOAT;
+    });
+    this.events.on(Events.DISEMBARK_BOAT, () => {
+      this.playerMode = PlayerMode.SHORE;
+      this.isDeepWater = false;
+      this.deepWaterBadge.style.display = 'none';
+    });
+    this.events.on(Events.ENTER_DEEP_WATER, () => {
+      this.isDeepWater = true;
+      this.deepWaterBadge.style.display = 'block';
+    });
+    this.events.on(Events.LEAVE_DEEP_WATER, () => {
+      this.isDeepWater = false;
+      this.deepWaterBadge.style.display = 'none';
     });
     // Sync HUD from loaded save
     this.syncHUD();
@@ -129,7 +163,11 @@ export class GameUI implements Component {
 
     switch (state) {
       case FishingState.IDLE:
-        this.prompt.textContent = 'WASD to move | Hold SPACE to cast | TAB shop | J journal';
+        if (this.playerMode === PlayerMode.BOAT) {
+          this.prompt.textContent = 'WASD to sail | Hold SPACE to cast | E to disembark';
+        } else {
+          this.prompt.textContent = 'WASD to move | Hold SPACE to cast | E to board boat | TAB shop | J journal';
+        }
         this.prompt.style.display = 'block';
         if (this.catchDisplayed) {
           // Still showing catch popup

@@ -18,6 +18,11 @@ export class FishingStateMachine implements Component {
 
   public state = FishingState.IDLE;
 
+  // Fish pools
+  private currentShorePool: FishSpecies[] = [];
+  private deepWaterFishPool: FishSpecies[] = [];
+  private inDeepWater = false;
+
   // Casting
   private castPower = 0;
 
@@ -67,9 +72,30 @@ export class FishingStateMachine implements Component {
     this.player = player;
   }
 
-  /** Swap the active fish pool (for biome transitions) */
+  /** Swap the shore fish pool (for biome transitions) */
   setFishPool(species: FishSpecies[]): void {
-    this.raritySystem.setSpecies(species);
+    this.currentShorePool = species;
+    this.applyFishPool();
+  }
+
+  /** Set the deep-water exclusive fish for current biome */
+  setDeepFishPool(species: FishSpecies[]): void {
+    this.deepWaterFishPool = species;
+    this.applyFishPool();
+  }
+
+  /** Toggle deep water mode — merges deep fish into pool when true */
+  setDeepWater(deep: boolean): void {
+    this.inDeepWater = deep;
+    this.applyFishPool();
+  }
+
+  private applyFishPool(): void {
+    if (this.inDeepWater && this.deepWaterFishPool.length > 0) {
+      this.raritySystem.setSpecies([...this.currentShorePool, ...this.deepWaterFishPool]);
+    } else {
+      this.raritySystem.setSpecies(this.currentShorePool);
+    }
   }
 
   /** True if space or left-click is active (for fishing actions) */

@@ -84,6 +84,25 @@ export class TerrainSystem implements Component {
     }
   }
 
+  private createBoardingSign(): void {
+    const postMat = this.trackMat(new THREE.MeshStandardMaterial({ color: 0x5d4037, roughness: 0.85 }));
+    const signMat = this.trackMat(new THREE.MeshStandardMaterial({ color: 0x8d6e63, roughness: 0.7 }));
+
+    // Post
+    const postGeo = this.trackGeo(new THREE.CylinderGeometry(0.05, 0.06, 1.8, 6));
+    const post = new THREE.Mesh(postGeo, postMat);
+    post.position.set(2.5, 1.8, 2.5);
+    post.castShadow = true;
+    this.add(post);
+
+    // Sign board
+    const boardGeo = this.trackGeo(new THREE.BoxGeometry(0.8, 0.4, 0.06));
+    const board = new THREE.Mesh(boardGeo, signMat);
+    board.position.set(2.5, 2.5, 2.5);
+    board.castShadow = true;
+    this.add(board);
+  }
+
   private createWoodenDock(): void {
     const woodMat = this.trackMat(new THREE.MeshStandardMaterial({
       color: this.config.dockColor,
@@ -126,6 +145,7 @@ export class TerrainSystem implements Component {
       bar.position.set(side, 2.0, -2);
       this.add(bar);
     }
+    this.createBoardingSign();
   }
 
   private createWoodenPier(): void {
@@ -171,6 +191,7 @@ export class TerrainSystem implements Component {
       rope.position.set(side, 1.8, -1);
       this.add(rope);
     }
+    this.createBoardingSign();
   }
 
   private createIceShelf(): void {
@@ -208,6 +229,7 @@ export class TerrainSystem implements Component {
       chunk.scale.y = 0.4 + Math.random() * 0.3;
       this.add(chunk);
     }
+    this.createBoardingSign();
   }
 
   private createTrees(): void {

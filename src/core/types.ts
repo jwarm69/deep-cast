@@ -16,6 +16,12 @@ export interface GameEvent {
 
 export type EventCallback = (event: GameEvent) => void;
 
+// Player mode — shore (walking) vs boat (sailing)
+export enum PlayerMode {
+  SHORE = 'shore',
+  BOAT = 'boat',
+}
+
 // Fishing states
 export enum FishingState {
   IDLE = 'idle',
@@ -50,6 +56,7 @@ export interface FishSpecies {
   xpReward: number;
   coinReward: [number, number]; // [min, max]
   color: number; // hex color for catch popup accent
+  deepWater?: boolean; // true = only catchable from boat in deep water
 }
 
 // Catch result
@@ -94,6 +101,10 @@ export const Events = {
   BIOME_CHANGE: 'world:biome_change',
   BOAT_PURCHASED: 'player:boat_purchased',
   BOAT_EQUIPPED: 'player:boat_equipped',
+  BOARD_BOAT: 'player:board_boat',
+  DISEMBARK_BOAT: 'player:disembark_boat',
+  ENTER_DEEP_WATER: 'world:enter_deep_water',
+  LEAVE_DEEP_WATER: 'world:leave_deep_water',
 
   // Overlays
   SHOP_TOGGLE: 'ui:shop_toggle',

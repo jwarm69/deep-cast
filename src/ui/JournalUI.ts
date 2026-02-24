@@ -2,7 +2,7 @@ import { Component, Events, Rarity, FishSpecies } from '../core/types';
 import { EventSystem } from '../core/EventSystem';
 import { InputManager } from '../core/InputManager';
 import { PlayerState } from '../state/PlayerState';
-import { ALL_FISH, FISH_BY_TERRAIN } from '../data/fish-species';
+import { ALL_FISH, FISH_BY_TERRAIN, DEEP_FISH_BY_TERRAIN } from '../data/fish-species';
 import { BIOME_CONFIGS, TerrainType } from '../data/biome-config';
 
 const RARITY_COLORS: Record<Rarity, string> = {
@@ -95,7 +95,7 @@ export class JournalUI implements Component {
 
   private buildBiomeSection(terrain: TerrainType): HTMLElement {
     const config = BIOME_CONFIGS[terrain];
-    const fish = FISH_BY_TERRAIN[terrain];
+    const fish = [...FISH_BY_TERRAIN[terrain], ...DEEP_FISH_BY_TERRAIN[terrain]];
     const biomeCaught = fish.filter((f) => this.player.journal.has(f.id)).length;
     const accentColor = `#${config.skyColor.toString(16).padStart(6, '0')}`;
 

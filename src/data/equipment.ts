@@ -61,12 +61,13 @@ export interface BoatData {
   rarityBoost: number; // 0-1, passive rarity bonus
   cost: number;
   levelRequired: number;
+  description?: string;
 }
 
 export const BOATS: BoatData[] = [
-  { id: 'rowboat', name: 'Rowboat', tier: 1, speed: 3, rarityBoost: 0, cost: 0, levelRequired: 5 },
-  { id: 'skiff', name: 'Skiff', tier: 2, speed: 5, rarityBoost: 0.03, cost: 400, levelRequired: 8 },
-  { id: 'sailboat', name: 'Sailboat', tier: 3, speed: 7, rarityBoost: 0.07, cost: 1000, levelRequired: 12 },
-  { id: 'speedboat', name: 'Speedboat', tier: 4, speed: 12, rarityBoost: 0.11, cost: 2500, levelRequired: 18 },
-  { id: 'research_vessel', name: 'Research Vessel', tier: 5, speed: 8, rarityBoost: 0.15, cost: 6000, levelRequired: 25 },
+  { id: 'rowboat', name: 'Rowboat', tier: 1, speed: 3, rarityBoost: 0, cost: 0, levelRequired: 5, description: 'A humble wooden rowboat. Slow but steady — your first ticket to deep water.' },
+  { id: 'skiff', name: 'Skiff', tier: 2, speed: 5, rarityBoost: 0.03, cost: 400, levelRequired: 8, description: 'A nimble flat-bottom skiff with a small outboard motor. Slightly improves rare catches.' },
+  { id: 'sailboat', name: 'Sailboat', tier: 3, speed: 7, rarityBoost: 0.07, cost: 1000, levelRequired: 12, description: 'A proper sailboat with cabin and mast. Good speed and a solid rarity bonus.' },
+  { id: 'speedboat', name: 'Speedboat', tier: 4, speed: 12, rarityBoost: 0.11, cost: 2500, levelRequired: 18, description: 'A sleek racing hull that cuts through waves. Fastest boat on the water.' },
+  { id: 'research_vessel', name: 'Research Vessel', tier: 5, speed: 8, rarityBoost: 0.15, cost: 6000, levelRequired: 25, description: 'A state-of-the-art research vessel with observation deck and crane. Maximum rarity bonus.' },
 ];

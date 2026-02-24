@@ -4,6 +4,8 @@ import { FishingStateMachine } from '../fishing/FishingStateMachine';
 import { PlayerState } from '../state/PlayerState';
 import { BIOME_CONFIGS } from '../data/biome-config';
 
+const isMobile = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+
 /**
  * GameUI — manages all DOM overlay UI elements.
  * Reads state from the fishing state machine each frame.
@@ -163,7 +165,9 @@ export class GameUI implements Component {
 
     switch (state) {
       case FishingState.IDLE:
-        if (this.playerMode === PlayerMode.BOAT) {
+        if (isMobile) {
+          // Prompt hidden on mobile via CSS; action button handles context
+        } else if (this.playerMode === PlayerMode.BOAT) {
           this.prompt.textContent = 'WASD to sail | Hold SPACE to cast | E to disembark | TAB shop | J journal';
         } else {
           this.prompt.textContent = 'WASD to move | Hold SPACE to cast | E to board boat | TAB shop | J journal';

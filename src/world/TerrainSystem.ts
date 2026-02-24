@@ -26,6 +26,7 @@ export class TerrainSystem implements Component {
     this.createTrees();
     this.createRocks();
     this.createHills();
+    this.createMountains();
     this.createLakeBottom();
   }
 
@@ -50,14 +51,14 @@ export class TerrainSystem implements Component {
   }
 
   private createGround(): void {
-    const groundGeo = this.trackGeo(new THREE.PlaneGeometry(100, 60));
+    const groundGeo = this.trackGeo(new THREE.PlaneGeometry(200, 120));
     groundGeo.rotateX(-Math.PI / 2);
     const groundMat = this.trackMat(new THREE.MeshStandardMaterial({
       color: this.config.groundColor,
       roughness: 0.9,
     }));
     const ground = new THREE.Mesh(groundGeo, groundMat);
-    ground.position.set(0, 0.3, -30);
+    ground.position.set(0, 0.3, -60);
     ground.receiveShadow = true;
     this.add(ground);
   }
@@ -780,15 +781,37 @@ export class TerrainSystem implements Component {
     }
   }
 
+  private createMountains(): void {
+    const mountainMat = this.trackMat(new THREE.MeshStandardMaterial({
+      color: this.config.mountainColor,
+      roughness: 0.9,
+    }));
+
+    for (let i = 0; i < this.config.mountainCount; i++) {
+      const segments = i % 2 === 0 ? 4 : 8; // Alternating pyramid/cone variety
+      const baseRadius = 5 + Math.random() * 10;
+      const height = 8 + Math.random() * 15;
+      const mtnGeo = this.trackGeo(new THREE.ConeGeometry(baseRadius, height, segments));
+      const mtn = new THREE.Mesh(mtnGeo, mountainMat);
+
+      const x = (Math.random() - 0.5) * 180;
+      const z = -50 - Math.random() * 40;
+      mtn.position.set(x, 0.3 + height / 2, z);
+      mtn.castShadow = true;
+      mtn.receiveShadow = true;
+      this.add(mtn);
+    }
+  }
+
   private createLakeBottom(): void {
-    const bedGeo = this.trackGeo(new THREE.PlaneGeometry(100, 65));
+    const bedGeo = this.trackGeo(new THREE.PlaneGeometry(200, 120));
     bedGeo.rotateX(-Math.PI / 2);
     const bedMat = this.trackMat(new THREE.MeshStandardMaterial({
       color: this.config.lakeBottomColor,
       roughness: 0.95,
     }));
     const bed = new THREE.Mesh(bedGeo, bedMat);
-    bed.position.set(0, -3, 30);
+    bed.position.set(0, -3, 60);
     bed.receiveShadow = true;
     this.add(bed);
   }

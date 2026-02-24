@@ -3,6 +3,7 @@ import { Engine } from './core/Engine';
 import { Events, PlayerMode, FishingState } from './core/types';
 import { WaterSystem } from './world/WaterSystem';
 import { TerrainSystem } from './world/TerrainSystem';
+import { SkySystem } from './world/SkySystem';
 import { LightingSystem } from './world/LightingSystem';
 import { DeepWaterMarker } from './world/DeepWaterMarker';
 import { Character } from './entities/Character';
@@ -18,8 +19,12 @@ import { ParticleSystem, FX } from './effects/ParticleSystem';
 import { GameUI } from './ui/GameUI';
 import { ShopUI } from './ui/ShopUI';
 import { JournalUI } from './ui/JournalUI';
+import { MobileControls } from './ui/MobileControls';
 import { BIOME_CONFIGS, TerrainType } from './data/biome-config';
 import { FISH_BY_TERRAIN, DEEP_FISH_BY_TERRAIN } from './data/fish-species';
+import { createBackendClient } from './backend/createBackendClient';
+import { MultiplayerBridge } from './multiplayer/MultiplayerBridge';
+import { findFishingSpot } from './multiplayer/fishing-spots';
 
 async function main() {
   const container = document.getElementById('game-container')!;
@@ -32,6 +37,10 @@ async function main() {
   const lighting = new LightingSystem(scene);
   lighting.init();
   engine.addComponent(lighting);
+
+  const sky = new SkySystem(scene);
+  sky.init();
+  engine.addComponent(sky);
 
   const terrainSystem = new TerrainSystem(scene);
   terrainSystem.init();
@@ -128,6 +137,33 @@ async function main() {
   fsm.setPlayerState(player);
   engine.addComponent(fsm);
 
+  // Multiplayer bridge (local by default; switch to Supabase with env vars)
+  const backend = createBackendClient();
+  const multiplayer = new MultiplayerBridge(engine.events, backend, () => {
+    const worldPos = playerMode === PlayerMode.BOAT ? boat.worldPosition : character.group.position;
+    const spot = findFishingSpot(
+      player.currentTerrain,
+      worldPos.x,
+      worldPos.z,
+      playerMode,
+      wasInDeepWater,
+    );
+
+    return {
+      terrain: player.currentTerrain,
+      mode: playerMode,
+      position: {
+        x: worldPos.x,
+        y: worldPos.y,
+        z: worldPos.z,
+      },
+      isDeepWater: wasInDeepWater,
+      spotId: spot?.id ?? null,
+    };
+  });
+  await multiplayer.init();
+  engine.addComponent(multiplayer);
+
   // --- Biome system ---
 
   function applyBiome(terrain: TerrainType): void {
@@ -141,6 +177,9 @@ async function main() {
 
     // Water
     water.setConfig(config);
+
+    // Sky dome — rebuild for new biome colors/clouds
+    sky.rebuild(config);
 
     // Terrain — full destroy/rebuild
     terrainSystem.rebuild(config);
@@ -230,6 +269,31 @@ async function main() {
     engine.camera.shake(0.3, 0.6);
   });
 
+  // --- Board / Disembark helper (shared by keyboard E + mobile button) ---
+  function toggleBoard(): void {
+    if (playerMode === PlayerMode.SHORE) {
+      const charPos = character.group.position;
+      const nearDockEnd = Math.abs(charPos.x) < 3 && charPos.z >= 1 && charPos.z <= 5;
+      if (nearDockEnd && player.activeBoat) {
+        playerMode = PlayerMode.BOAT;
+        character.group.visible = false;
+        boat.setBoatData(player.activeBoat);
+        boat.showAtDock();
+        boat.startSailing();
+        engine.events.emit(Events.BOARD_BOAT);
+      }
+    } else {
+      playerMode = PlayerMode.SHORE;
+      boat.stopSailing();
+      boat.hide();
+      character.group.position.copy(terrainSystem.characterPosition);
+      character.group.visible = true;
+      wasInDeepWater = false;
+      fsm.setDeepWater(false);
+      engine.events.emit(Events.DISEMBARK_BOAT);
+    }
+  }
+
   // Update reel sound pitch each frame while reeling
   // Also handle board/disembark and deep water detection
   const originalFsmUpdate = fsm.update.bind(fsm);
@@ -245,30 +309,7 @@ async function main() {
     wasEDown = eDown;
 
     if (ePressed && fsm.state === FishingState.IDLE) {
-      if (playerMode === PlayerMode.SHORE) {
-        // Check if near dock end and has active boat
-        const charPos = character.group.position;
-        const nearDockEnd = Math.abs(charPos.x) < 3 && charPos.z >= 1 && charPos.z <= 5;
-        if (nearDockEnd && player.activeBoat) {
-          // Board the boat
-          playerMode = PlayerMode.BOAT;
-          character.group.visible = false;
-          boat.setBoatData(player.activeBoat);
-          boat.showAtDock();
-          boat.startSailing();
-          engine.events.emit(Events.BOARD_BOAT);
-        }
-      } else {
-        // Disembark — return to dock
-        playerMode = PlayerMode.SHORE;
-        boat.stopSailing();
-        boat.hide();
-        character.group.position.copy(terrainSystem.characterPosition);
-        character.group.visible = true;
-        wasInDeepWater = false;
-        fsm.setDeepWater(false);
-        engine.events.emit(Events.DISEMBARK_BOAT);
-      }
+      toggleBoard();
     }
 
     // --- Deep water detection ---
@@ -298,6 +339,25 @@ async function main() {
   const journal = new JournalUI(engine.events, engine.input, player);
   journal.init();
   engine.addComponent(journal);
+
+  // Mobile controls (only active on touch devices)
+  if (engine.input.isMobile) {
+    const mobile = new MobileControls(engine.input);
+    mobile.init();
+    mobile.onBoardPress = () => {
+      if (fsm.state === FishingState.IDLE) toggleBoard();
+    };
+    mobile.onShopPress = () => shop.toggle();
+    mobile.onJournalPress = () => journal.toggle();
+
+    // Update action button label each frame
+    const originalMobileUpdate = mobile.update.bind(mobile);
+    mobile.update = (dt: number) => {
+      originalMobileUpdate(dt);
+      mobile.setFishingState(fsm.state);
+    };
+    engine.addComponent(mobile);
+  }
 
   // Start the game loop
   engine.start();

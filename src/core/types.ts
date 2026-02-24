@@ -109,4 +109,10 @@ export const Events = {
   // Overlays
   SHOP_TOGGLE: 'ui:shop_toggle',
   JOURNAL_TOGGLE: 'ui:journal_toggle',
+
+  // Multiplayer/presence
+  PRESENCE_CONNECTED: 'multiplayer:presence_connected',
+  PRESENCE_UPDATED: 'multiplayer:presence_updated',
+  PRESENCE_ERROR: 'multiplayer:presence_error',
+  SPOT_CHANGED: 'multiplayer:spot_changed',
 } as const;

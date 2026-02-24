@@ -44,8 +44,9 @@ export class Renderer implements Component {
   }
 
   /** Update sky background and fog for biome transitions */
-  setBiomeAtmosphere(skyColor: number, fogColor: number, fogDensity: number): void {
-    (this.scene.background as THREE.Color).set(skyColor);
+  setBiomeAtmosphere(_skyColor: number, fogColor: number, fogDensity: number): void {
+    // Use fogColor as background fallback — matches sky dome horizon for seamless blending
+    (this.scene.background as THREE.Color).set(fogColor);
     const fog = this.scene.fog as THREE.FogExp2;
     fog.color.set(fogColor);
     fog.density = fogDensity;

@@ -86,8 +86,8 @@ export class WaterSystem implements Component {
   }
 
   init(): void {
-    // Water plane covers lake area only: z = 0 to z = 60
-    const geometry = new THREE.PlaneGeometry(100, 60, 128, 128);
+    // Water plane — expanded to match terrain so edges are never visible
+    const geometry = new THREE.PlaneGeometry(200, 120, 128, 128);
     geometry.rotateX(-Math.PI / 2);
 
     this.material = new THREE.ShaderMaterial({
@@ -104,7 +104,7 @@ export class WaterSystem implements Component {
     });
 
     this.mesh = new THREE.Mesh(geometry, this.material);
-    this.mesh.position.set(0, -0.2, 30);
+    this.mesh.position.set(0, -0.2, 60);
     this.mesh.receiveShadow = true;
     this.scene.add(this.mesh);
   }

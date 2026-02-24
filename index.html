@@ -2,12 +2,19 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Deep Cast</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    html, body { width: 100%; height: 100%; overflow: hidden; background: #000; }
-    canvas { display: block; }
+    html, body {
+      width: 100%; height: 100%;
+      overflow: hidden; background: #000;
+      -webkit-touch-callout: none;
+      -webkit-user-select: none;
+      user-select: none;
+      touch-action: none;
+    }
+    canvas { display: block; touch-action: none; }
 
     #game-ui {
       position: fixed;
@@ -24,7 +31,7 @@
     /* HUD */
     #hud {
       position: absolute;
-      top: 16px; left: 16px;
+      top: max(16px, env(safe-area-inset-top, 16px)); left: max(16px, env(safe-area-inset-left, 16px));
       display: flex;
       flex-direction: column;
       gap: 6px;
@@ -230,6 +237,7 @@
       opacity: 0.6;
       text-shadow: 0 1px 3px rgba(0,0,0,0.8);
       text-align: center;
+      white-space: nowrap;
     }
 
     /* Escaped fish */
@@ -244,6 +252,132 @@
       text-shadow: 0 0 12px rgba(239,68,68,0.5), 0 2px 4px rgba(0,0,0,0.8);
     }
     #escaped-ui.visible { display: block; }
+
+    /* ===================== MOBILE CONTROLS ===================== */
+    #mobile-controls {
+      display: none;
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      pointer-events: none;
+      z-index: 20;
+    }
+    #mobile-controls * { pointer-events: auto; }
+
+    /* Virtual joystick */
+    #joystick-zone {
+      position: absolute;
+      bottom: max(24px, env(safe-area-inset-bottom, 24px));
+      left: max(24px, env(safe-area-inset-left, 24px));
+      width: 120px; height: 120px;
+      touch-action: none;
+    }
+    #joystick-base {
+      position: absolute;
+      width: 120px; height: 120px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.08);
+      border: 2px solid rgba(255,255,255,0.2);
+    }
+    #joystick-thumb {
+      position: absolute;
+      width: 48px; height: 48px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.35);
+      border: 2px solid rgba(255,255,255,0.5);
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      transition: none;
+    }
+
+    /* Action button (cast/reel) */
+    #action-btn {
+      position: absolute;
+      bottom: max(36px, env(safe-area-inset-bottom, 36px));
+      right: max(24px, env(safe-area-inset-right, 24px));
+      width: 80px; height: 80px;
+      border-radius: 50%;
+      background: rgba(56, 189, 248, 0.3);
+      border: 3px solid rgba(56, 189, 248, 0.6);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 700;
+      color: #fff;
+      text-shadow: 0 1px 3px rgba(0,0,0,0.8);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      touch-action: none;
+    }
+    #action-btn.active {
+      background: rgba(56, 189, 248, 0.6);
+      border-color: rgba(56, 189, 248, 0.9);
+    }
+
+    /* Secondary buttons row */
+    #mobile-btns {
+      position: absolute;
+      bottom: max(130px, calc(env(safe-area-inset-bottom, 24px) + 106px));
+      right: max(24px, env(safe-area-inset-right, 24px));
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .mobile-btn {
+      width: 48px; height: 48px;
+      border-radius: 12px;
+      background: rgba(255,255,255,0.1);
+      border: 2px solid rgba(255,255,255,0.25);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 700;
+      color: #fff;
+      text-shadow: 0 1px 2px rgba(0,0,0,0.8);
+      text-transform: uppercase;
+      touch-action: manipulation;
+    }
+    .mobile-btn:active {
+      background: rgba(255,255,255,0.25);
+    }
+
+    /* ===================== MOBILE MEDIA QUERIES ===================== */
+    @media (max-width: 768px), (pointer: coarse) {
+      #mobile-controls { display: block; }
+      #prompt { display: none !important; }
+
+      #hud {
+        font-size: 12px;
+        top: max(8px, env(safe-area-inset-top, 8px));
+        left: max(8px, env(safe-area-inset-left, 8px));
+        gap: 4px;
+      }
+      #hud-xp-bg { width: 90px; height: 5px; }
+      #hud-biome { font-size: 10px; }
+
+      #cast-ui { bottom: 160px; }
+      #power-bar-bg { width: 150px; height: 14px; }
+      #cast-label { font-size: 11px; }
+
+      #bite-text { font-size: 36px; }
+      #bite-hint { font-size: 14px; }
+
+      #reel-ui {
+        bottom: 160px;
+        right: max(16px, env(safe-area-inset-right, 16px));
+      }
+      #reel-bar-bg { width: 180px; height: 16px; }
+
+      #catch-popup { padding: 24px 28px; }
+      #catch-fish-name { font-size: 28px; }
+      #catch-title { font-size: 16px; }
+      #catch-weight { font-size: 14px; }
+
+      #escaped-ui { font-size: 22px; }
+      #level-up-banner { font-size: 18px; top: 60px; }
+    }
   </style>
 </head>
 <body>
@@ -280,6 +414,22 @@
     <div id="escaped-ui">The fish escaped!</div>
     <div id="prompt">WASD to move | Hold SPACE to cast | Drag mouse to look</div>
   </div>
+
+  <!-- Mobile touch controls overlay -->
+  <div id="mobile-controls">
+    <div id="joystick-zone">
+      <div id="joystick-base">
+        <div id="joystick-thumb"></div>
+      </div>
+    </div>
+    <div id="action-btn">CAST</div>
+    <div id="mobile-btns">
+      <div class="mobile-btn" id="btn-board">BOAT</div>
+      <div class="mobile-btn" id="btn-shop">SHOP</div>
+      <div class="mobile-btn" id="btn-journal">LOG</div>
+    </div>
+  </div>
+
   <script type="module" src="/src/main.ts"></script>
 </body>
 </html>

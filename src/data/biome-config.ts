@@ -10,6 +10,17 @@ export interface BiomeConfig {
   skyColor: number;
   fogColor: number;
   fogDensity: number;
+  skyTopColor: number;
+  skyHorizonColor: number;
+  sunDiscColor: number;
+  sunDiscSize: number;
+  cloudColor: number;
+  cloudOpacity: number;
+  cloudCount: number;
+  cloudAltitude: number;
+  cloudDriftSpeed: number;
+  mountainColor: number;
+  mountainCount: number;
 
   // Lighting
   ambientColor: number;
@@ -57,6 +68,17 @@ export const BIOME_CONFIGS: Record<TerrainType, BiomeConfig> = {
     skyColor: 0x87ceeb,
     fogColor: 0x87ceeb,
     fogDensity: 0.008,
+    skyTopColor: 0x1a6eb5,
+    skyHorizonColor: 0xb3d9f2,
+    sunDiscColor: 0xfff9c4,
+    sunDiscSize: 3.0,
+    cloudColor: 0xffffff,
+    cloudOpacity: 0.7,
+    cloudCount: 15,
+    cloudAltitude: 60,
+    cloudDriftSpeed: 1.5,
+    mountainColor: 0x37474f,
+    mountainCount: 8,
 
     ambientColor: 0x8ec7e8,
     ambientIntensity: 0.5,
@@ -98,6 +120,17 @@ export const BIOME_CONFIGS: Record<TerrainType, BiomeConfig> = {
     skyColor: 0x64b5f6,
     fogColor: 0x90caf9,
     fogDensity: 0.005,
+    skyTopColor: 0x1565c0,
+    skyHorizonColor: 0xbbdefb,
+    sunDiscColor: 0xfff176,
+    sunDiscSize: 4.0,
+    cloudColor: 0xffffff,
+    cloudOpacity: 0.6,
+    cloudCount: 12,
+    cloudAltitude: 70,
+    cloudDriftSpeed: 2.0,
+    mountainColor: 0x33691e,
+    mountainCount: 6,
 
     ambientColor: 0xffe0b2,
     ambientIntensity: 0.6,
@@ -139,6 +172,17 @@ export const BIOME_CONFIGS: Record<TerrainType, BiomeConfig> = {
     skyColor: 0xb0bec5,
     fogColor: 0xcfd8dc,
     fogDensity: 0.012,
+    skyTopColor: 0x607d8b,
+    skyHorizonColor: 0xcfd8dc,
+    sunDiscColor: 0xeceff1,
+    sunDiscSize: 2.5,
+    cloudColor: 0xb0bec5,
+    cloudOpacity: 0.5,
+    cloudCount: 18,
+    cloudAltitude: 40,
+    cloudDriftSpeed: 1.0,
+    mountainColor: 0x78909c,
+    mountainCount: 10,
 
     ambientColor: 0xb0bec5,
     ambientIntensity: 0.4,

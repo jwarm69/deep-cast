@@ -26,6 +26,7 @@ export class SupabaseBackendClient implements BackendClient {
   private supabase: SupabaseClient | null = null;
   private session: BackendSession | null = null;
   private channel: RealtimeChannel | null = null;
+  private channelReady: Promise<void> | null = null;
   private currentTerrain: string | null = null;
   private remotePresences: RemotePresenceState[] = [];
 
@@ -55,6 +56,7 @@ export class SupabaseBackendClient implements BackendClient {
       await this.supabase.removeChannel(this.channel);
       this.channel = null;
     }
+    this.channelReady = null;
     this.currentTerrain = null;
     this.remotePresences = [];
   }
@@ -68,11 +70,12 @@ export class SupabaseBackendClient implements BackendClient {
     if (!this.supabase || !this.session) return [];
 
     // Switch channels when terrain changes
-    if (state.terrain !== this.currentTerrain) {
+    if (state.terrain !== this.currentTerrain || !this.channel) {
       await this.switchChannel(state.terrain);
     }
 
-    if (this.channel) {
+    if (this.channel && this.channelReady) {
+      await this.channelReady;
       const payload: PresencePayload = {
         playerId: this.session.playerId,
         displayName: this.session.displayName,
@@ -84,7 +87,10 @@ export class SupabaseBackendClient implements BackendClient {
         spotId: state.spotId,
         timestamp: Date.now(),
       };
-      await this.channel.track(payload);
+      const response = await this.channel.track(payload);
+      if (response !== 'ok') {
+        throw new Error(`Presence track failed: ${String(response)}`);
+      }
     }
 
     return this.remotePresences;
@@ -100,22 +106,53 @@ export class SupabaseBackendClient implements BackendClient {
       this.remotePresences = [];
     }
 
-    this.currentTerrain = terrain;
+    this.currentTerrain = null;
     const channelName = `presence:terrain:${terrain}`;
 
-    this.channel = this.supabase.channel(channelName, {
+    const nextChannel = this.supabase.channel(channelName, {
       config: { presence: { key: this.session!.playerId } },
     });
+    this.channel = nextChannel;
 
     this.channel.on('presence', { event: 'sync' }, () => {
       this.rebuildRemoteList();
     });
 
-    await this.channel.subscribe((status: string) => {
-      if (status === 'SUBSCRIBED') {
-        console.log(`[multiplayer] Joined channel ${channelName}`);
-      }
+    this.channelReady = new Promise<void>((resolve, reject) => {
+      let settled = false;
+      nextChannel.subscribe((status: string) => {
+        if (status === 'SUBSCRIBED') {
+          if (!settled) {
+            settled = true;
+            console.log(`[multiplayer] Joined channel ${channelName}`);
+            resolve();
+          }
+          return;
+        }
+
+        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+          if (!settled) {
+            settled = true;
+            reject(new Error(`Channel ${channelName} failed with status ${status}`));
+          }
+        }
+      });
     });
+
+    try {
+      await this.channelReady;
+      this.currentTerrain = terrain;
+    } catch (error) {
+      this.channelReady = null;
+      this.currentTerrain = null;
+
+      if (this.channel && this.supabase) {
+        await this.supabase.removeChannel(this.channel);
+      }
+      this.channel = null;
+      this.remotePresences = [];
+      throw error;
+    }
   }
 
   private rebuildRemoteList(): void {

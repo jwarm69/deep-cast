@@ -38,12 +38,16 @@ export class SupabaseBackendClient implements BackendClient {
     const { data, error } = await this.supabase.auth.signInAnonymously();
     if (error) throw new Error(`Anonymous sign-in failed: ${error.message}`);
 
-    const userId = data.session?.user?.id ?? crypto.randomUUID();
+    // Use a per-tab ID so multiple tabs on the same browser each appear as
+    // separate players (Supabase auth session is shared via localStorage).
+    const tabId = crypto.randomUUID();
+    const displayName = generateFishName();
     this.session = {
-      playerId: userId,
-      displayName: generateFishName(),
+      playerId: tabId,
+      displayName,
       isAnonymous: true,
     };
+    console.log(`[multiplayer] Connected as ${displayName} (${tabId.slice(0, 8)})`);
   }
 
   async disconnect(): Promise<void> {
@@ -119,9 +123,9 @@ export class SupabaseBackendClient implements BackendClient {
 
     const presenceState = this.channel.presenceState<PresencePayload>();
     const remotes: RemotePresenceState[] = [];
+    const allKeys = Object.keys(presenceState);
 
     for (const [_key, entries] of Object.entries(presenceState)) {
-      // Each key may have multiple presence entries; use the latest
       const entry = entries[entries.length - 1];
       if (!entry || entry.playerId === this.session.playerId) continue;
 
@@ -138,6 +142,9 @@ export class SupabaseBackendClient implements BackendClient {
       });
     }
 
+    if (allKeys.length > 0) {
+      console.log(`[multiplayer] Presence sync: ${allKeys.length} total, ${remotes.length} remote`);
+    }
     this.remotePresences = remotes;
   }
 }

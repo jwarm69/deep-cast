@@ -228,15 +228,27 @@ export class FishingStateMachine implements Component {
       const boatBonus = this.player?.activeBoat?.rarityBoost ?? 0;
       const fish = this.raritySystem.rollFish(lureBonus + boatBonus);
       this.reelDifficulty = fish.reelDifficulty;
-      this.reelFishName = fish.name;
       this.reelProgress = 0;
 
-      const weight = this.raritySystem.rollWeight(fish);
-      const coins = this.raritySystem.rollCoins(fish);
-      this.pendingCatch = { species: fish, weight, coins, xp: fish.xpReward };
+      let weight = this.raritySystem.rollWeight(fish);
+      let coins = this.raritySystem.rollCoins(fish);
+      let xp = fish.xpReward;
+      let isTrophy = false;
+
+      // 4% chance for a Trophy variant
+      const TROPHY_CHANCE = 0.04;
+      if (Math.random() < TROPHY_CHANCE) {
+        isTrophy = true;
+        weight = +(weight * (1.5 + Math.random() * 1.5)).toFixed(2);
+        coins = Math.round(coins * 1.75);
+        xp = Math.round(xp * 1.5);
+      }
+
+      this.reelFishName = isTrophy ? `Trophy ${fish.name}` : fish.name;
+      this.pendingCatch = { species: fish, weight, coins, xp, isTrophy };
 
       this.setState(FishingState.REELING);
-      this.events.emit(Events.REEL_START, { fishName: fish.name, rarity: fish.rarity });
+      this.events.emit(Events.REEL_START, { fishName: this.reelFishName, rarity: fish.rarity });
       return;
     }
 

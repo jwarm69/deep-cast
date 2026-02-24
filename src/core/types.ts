@@ -65,6 +65,7 @@ export interface CatchData {
   weight: number;
   coins: number;
   xp: number;
+  isTrophy?: boolean;
 }
 
 // Game events

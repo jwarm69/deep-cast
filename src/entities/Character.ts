@@ -93,7 +93,7 @@ export class Character implements Component {
   }
 
   private updateRodAttachPoint(): void {
-    const local = new THREE.Vector3(-0.5, 1.4, -0.4);
+    const local = new THREE.Vector3(-0.38, 0.89, -0.03);
     this.rodAttachPoint.copy(local).applyMatrix4(this.group.matrixWorld);
   }
 

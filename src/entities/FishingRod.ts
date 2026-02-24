@@ -20,7 +20,7 @@ export class FishingRod implements Component {
     // Rod shaft — tapered cylinder
     const rodGeo = new THREE.CylinderGeometry(0.015, 0.04, 3.5, 8);
     const rod = new THREE.Mesh(rodGeo, rodMat);
-    rod.position.y = 1.75;
+    rod.position.y = 0.6;
     rod.rotation.x = -0.6; // angled forward over water
     rod.castShadow = true;
     this.group.add(rod);
@@ -63,7 +63,7 @@ export class FishingRod implements Component {
 
     // Compute tip position in world space
     // Tip is at the end of the angled rod shaft
-    const tipLocal = new THREE.Vector3(0, 3.2, -2.0);
+    const tipLocal = new THREE.Vector3(0, 1.94, -1.33);
     this.tipPosition.copy(tipLocal).add(this.group.position);
   }
 

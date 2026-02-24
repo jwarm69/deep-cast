@@ -131,6 +131,18 @@ export class CatchFish implements Component {
 
   show(data: CatchData): void {
     this.buildFish(data.species, data.weight);
+
+    // Trophy fish get gold emissive glow
+    if (data.isTrophy) {
+      this.group.traverse((child) => {
+        if (child instanceof THREE.Mesh) {
+          const mat = child.material as THREE.MeshStandardMaterial;
+          mat.emissive = new THREE.Color(0xfbbf24);
+          mat.emissiveIntensity = 0.3;
+        }
+      });
+    }
+
     this.isAnimating = true;
     this.animTime = 0;
     this.group.visible = true;

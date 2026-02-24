@@ -120,13 +120,26 @@ export class GameUI implements Component {
   }
 
   private showCatch(data: CatchData): void {
-    this.catchFishName.textContent = data.species.name;
-    this.catchFishName.style.color = `#${data.species.color.toString(16).padStart(6, '0')}`;
+    const name = data.isTrophy ? `Trophy ${data.species.name}` : data.species.name;
+    this.catchFishName.textContent = name;
+    this.catchFishName.style.color = data.isTrophy
+      ? '#fbbf24'
+      : `#${data.species.color.toString(16).padStart(6, '0')}`;
 
-    this.catchRarity.textContent = data.species.rarity.toUpperCase();
+    const rarityLabel = data.isTrophy
+      ? `TROPHY ${data.species.rarity.toUpperCase()}`
+      : data.species.rarity.toUpperCase();
+    this.catchRarity.textContent = rarityLabel;
     this.catchRarity.className = `rarity-${data.species.rarity}`;
 
     this.catchWeight.textContent = `${data.weight} lbs | +${data.xp} XP | +${data.coins} coins`;
+
+    // Trophy popup styling
+    if (data.isTrophy) {
+      this.catchPopup.classList.add('trophy');
+    } else {
+      this.catchPopup.classList.remove('trophy');
+    }
 
     this.catchDisplayed = true;
     this.syncHUD();

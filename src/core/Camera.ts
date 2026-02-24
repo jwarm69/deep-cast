@@ -77,7 +77,7 @@ export class Camera implements Component {
     // Orbit with left-click drag
     if (this.input.mouseDown) {
       const { dx, dy } = this.input.consumeMouseDelta();
-      this.theta -= dx * 0.005;
+      this.theta += dx * 0.005;
       this.phi = Math.max(this.minPhi, Math.min(this.maxPhi, this.phi - dy * 0.005));
     } else {
       this.input.consumeMouseDelta(); // drain

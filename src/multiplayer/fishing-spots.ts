@@ -22,6 +22,15 @@ export const FISHING_SPOTS: FishingSpot[] = [
   { id: 'arctic-ice-shelf', name: 'Ice Shelf', terrain: 'arctic', x: 0, z: -1, radius: 6 },
   { id: 'arctic-pack-ice', name: 'Pack Ice', terrain: 'arctic', x: 14, z: 22, radius: 9, requiresBoat: true },
   { id: 'arctic-trench', name: 'Arctic Trench', terrain: 'arctic', x: -6, z: 46, radius: 12, requiresBoat: true, requiresDeepWater: true },
+  { id: 'swamp-dock', name: 'Swamp Dock', terrain: 'swamp', x: 0, z: -2, radius: 6 },
+  { id: 'swamp-bayou', name: 'Bayou Shallows', terrain: 'swamp', x: -14, z: -6, radius: 8 },
+  { id: 'swamp-deep-mire', name: 'Deep Mire', terrain: 'swamp', x: 4, z: 44, radius: 12, requiresBoat: true, requiresDeepWater: true },
+  { id: 'mountain-pier', name: 'Mountain Pier', terrain: 'mountain', x: 0, z: -1, radius: 6 },
+  { id: 'mountain-alpine-shore', name: 'Alpine Shore', terrain: 'mountain', x: 15, z: -10, radius: 8 },
+  { id: 'mountain-deep-basin', name: 'Deep Basin', terrain: 'mountain', x: -5, z: 48, radius: 12, requiresBoat: true, requiresDeepWater: true },
+  { id: 'volcano-platform', name: 'Lava Platform', terrain: 'volcano', x: 0, z: -1, radius: 6 },
+  { id: 'volcano-obsidian-cove', name: 'Obsidian Cove', terrain: 'volcano', x: -16, z: -8, radius: 9 },
+  { id: 'volcano-magma-trench', name: 'Magma Trench', terrain: 'volcano', x: 2, z: 46, radius: 12, requiresBoat: true, requiresDeepWater: true },
 ];
 
 export function findFishingSpot(

@@ -1,4 +1,4 @@
-export type TerrainType = 'lake' | 'tropical' | 'arctic';
+export type TerrainType = 'lake' | 'tropical' | 'arctic' | 'swamp' | 'mountain' | 'volcano';
 
 export interface BiomeConfig {
   name: string;
@@ -114,8 +114,8 @@ export const BIOME_CONFIGS: Record<TerrainType, BiomeConfig> = {
   tropical: {
     name: 'Tropical Lagoon',
     terrain: 'tropical',
-    travelCost: 50,
-    levelRequired: 8,
+    travelCost: 0,
+    levelRequired: 1,
 
     skyColor: 0x64b5f6,
     fogColor: 0x90caf9,
@@ -166,8 +166,8 @@ export const BIOME_CONFIGS: Record<TerrainType, BiomeConfig> = {
   arctic: {
     name: 'Frozen Tundra',
     terrain: 'arctic',
-    travelCost: 100,
-    levelRequired: 15,
+    travelCost: 0,
+    levelRequired: 1,
 
     skyColor: 0xb0bec5,
     fogColor: 0xcfd8dc,
@@ -213,5 +213,161 @@ export const BIOME_CONFIGS: Record<TerrainType, BiomeConfig> = {
     shoreRockCount: 10,
     waterRockCount: 6,
     hillCount: 8,
+  },
+
+  swamp: {
+    name: 'Murky Swamp',
+    terrain: 'swamp',
+    travelCost: 0,
+    levelRequired: 1,
+
+    skyColor: 0x556b2f,
+    fogColor: 0x3b4a2a,
+    fogDensity: 0.015,
+    skyTopColor: 0x2e3b1f,
+    skyHorizonColor: 0x6b7c3f,
+    sunDiscColor: 0xc8b560,
+    sunDiscSize: 2.0,
+    cloudColor: 0x6b6b4f,
+    cloudOpacity: 0.8,
+    cloudCount: 20,
+    cloudAltitude: 35,
+    cloudDriftSpeed: 0.8,
+    mountainColor: 0x3b4a2a,
+    mountainCount: 5,
+
+    ambientColor: 0x5a6b3a,
+    ambientIntensity: 0.3,
+    hemiSkyColor: 0x556b2f,
+    hemiGroundColor: 0x2e3b1f,
+    hemiIntensity: 0.3,
+    sunColor: 0xc8b560,
+    sunIntensity: 0.8,
+    sunPosition: [15, 20, 18],
+
+    waterDeepColor: 0x1a2e0a,
+    waterShallowColor: 0x3b5a1e,
+    waterSunDirection: [0.3, 0.4, 0.3],
+
+    groundColor: 0x3b4a2a,
+    shoreColor: 0x5a4a2a,
+    dockColor: 0x6b5a32,
+    rockColor: 0x4a4a3a,
+    trunkColor: 0x3b2e1a,
+    leafColor: 0x4a6b2a,
+    hillColor: 0x3b4a2a,
+    lakeBottomColor: 0x1a2e0a,
+
+    treeStyle: 'deciduous',
+    dockStyle: 'wooden_dock',
+
+    treeCount: 18,
+    shoreRockCount: 6,
+    waterRockCount: 4,
+    hillCount: 4,
+  },
+
+  mountain: {
+    name: 'Alpine Summit',
+    terrain: 'mountain',
+    travelCost: 0,
+    levelRequired: 1,
+
+    skyColor: 0x5b9bd5,
+    fogColor: 0x87aed0,
+    fogDensity: 0.006,
+    skyTopColor: 0x1a5276,
+    skyHorizonColor: 0xaed6f1,
+    sunDiscColor: 0xfff9c4,
+    sunDiscSize: 3.5,
+    cloudColor: 0xffffff,
+    cloudOpacity: 0.8,
+    cloudCount: 12,
+    cloudAltitude: 80,
+    cloudDriftSpeed: 2.5,
+    mountainColor: 0x5d6d7e,
+    mountainCount: 12,
+
+    ambientColor: 0x85c1e9,
+    ambientIntensity: 0.5,
+    hemiSkyColor: 0x5b9bd5,
+    hemiGroundColor: 0x6b8e6b,
+    hemiIntensity: 0.5,
+    sunColor: 0xfff8e1,
+    sunIntensity: 1.6,
+    sunPosition: [35, 50, 25],
+
+    waterDeepColor: 0x0a3d6b,
+    waterShallowColor: 0x2e86c1,
+    waterSunDirection: [0.5, 0.9, 0.3],
+
+    groundColor: 0x6b8e6b,
+    shoreColor: 0x9e9e9e,
+    dockColor: 0x795548,
+    rockColor: 0x5d6d7e,
+    trunkColor: 0x4a3728,
+    leafColor: 0x1b5e20,
+    hillColor: 0x7d8e7d,
+    lakeBottomColor: 0x154360,
+
+    treeStyle: 'pine',
+    dockStyle: 'wooden_pier',
+
+    treeCount: 14,
+    shoreRockCount: 12,
+    waterRockCount: 6,
+    hillCount: 8,
+  },
+
+  volcano: {
+    name: 'Volcanic Caldera',
+    terrain: 'volcano',
+    travelCost: 0,
+    levelRequired: 1,
+
+    skyColor: 0x8b3a3a,
+    fogColor: 0x6b2a2a,
+    fogDensity: 0.014,
+    skyTopColor: 0x4a1a1a,
+    skyHorizonColor: 0xc45a2a,
+    sunDiscColor: 0xff6b2a,
+    sunDiscSize: 5.0,
+    cloudColor: 0x5a4a4a,
+    cloudOpacity: 0.6,
+    cloudCount: 10,
+    cloudAltitude: 45,
+    cloudDriftSpeed: 1.2,
+    mountainColor: 0x2a1a1a,
+    mountainCount: 8,
+
+    ambientColor: 0xc45a2a,
+    ambientIntensity: 0.4,
+    hemiSkyColor: 0x8b3a3a,
+    hemiGroundColor: 0x4a2a1a,
+    hemiIntensity: 0.4,
+    sunColor: 0xff8c42,
+    sunIntensity: 1.8,
+    sunPosition: [20, 30, 15],
+
+    waterDeepColor: 0x3a0a0a,
+    waterShallowColor: 0x8b2a0a,
+    waterSunDirection: [0.4, 0.6, 0.2],
+
+    groundColor: 0x2a1a1a,
+    shoreColor: 0x4a3a2a,
+    dockColor: 0x5a4a3a,
+    rockColor: 0x1a1a1a,
+    trunkColor: 0x6b4a2a,
+    leafColor: 0x33691e,
+    hillColor: 0x3a2a1a,
+    lakeBottomColor: 0x2a0a0a,
+
+    treeStyle: 'palm',
+    dockStyle: 'ice_shelf',
+
+    treeCount: 8,
+    shoreRockCount: 14,
+    waterRockCount: 8,
+    hillCount: 6,
   },
 };

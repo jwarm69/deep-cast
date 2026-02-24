@@ -332,7 +332,7 @@ export class ShopUI implements Component {
       justify-content: center; flex-wrap: wrap;
     `;
 
-    const biomes: TerrainType[] = ['lake', 'tropical', 'arctic'];
+    const biomes: TerrainType[] = ['lake', 'tropical', 'arctic', 'swamp', 'mountain', 'volcano'];
     for (const terrain of biomes) {
       container.appendChild(this.buildLocationCard(terrain));
     }

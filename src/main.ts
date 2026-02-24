@@ -24,6 +24,7 @@ import { BIOME_CONFIGS, TerrainType } from './data/biome-config';
 import { FISH_BY_TERRAIN, DEEP_FISH_BY_TERRAIN } from './data/fish-species';
 import { createBackendClient } from './backend/createBackendClient';
 import { MultiplayerBridge } from './multiplayer/MultiplayerBridge';
+import { RemotePlayerRenderer } from './multiplayer/RemotePlayerRenderer';
 import { findFishingSpot } from './multiplayer/fishing-spots';
 
 async function main() {
@@ -163,6 +164,11 @@ async function main() {
   });
   await multiplayer.init();
   engine.addComponent(multiplayer);
+
+  // Remote player avatars (renders other anglers in the scene)
+  const remotePlayers = new RemotePlayerRenderer(scene, engine.events);
+  remotePlayers.init();
+  engine.addComponent(remotePlayers);
 
   // --- Biome system ---
 

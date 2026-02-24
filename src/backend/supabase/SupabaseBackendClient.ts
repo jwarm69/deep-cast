@@ -1,45 +1,143 @@
+import { createClient, SupabaseClient, RealtimeChannel } from '@supabase/supabase-js';
 import { BackendClient, BackendSession } from '../types';
 import { LocalPresenceState, RemotePresenceState } from '../../multiplayer/types';
+import { generateFishName } from '../generateFishName';
 
 export interface SupabaseBackendConfig {
   url: string;
   anonKey: string;
 }
 
+interface PresencePayload {
+  playerId: string;
+  displayName: string;
+  mode: string;
+  px: number;
+  py: number;
+  pz: number;
+  isDeepWater: boolean;
+  spotId: string | null;
+  timestamp: number;
+}
+
 export class SupabaseBackendClient implements BackendClient {
   readonly provider = 'supabase' as const;
   private config: SupabaseBackendConfig;
+  private supabase: SupabaseClient | null = null;
   private session: BackendSession | null = null;
+  private channel: RealtimeChannel | null = null;
+  private currentTerrain: string | null = null;
+  private remotePresences: RemotePresenceState[] = [];
 
   constructor(config: SupabaseBackendConfig) {
     this.config = config;
   }
 
   async connect(): Promise<void> {
-    // Integration placeholder:
-    // 1) Install @supabase/supabase-js
-    // 2) createClient(this.config.url, this.config.anonKey)
-    // 3) anonymous sign-in + channel joins for presence
-    void this.config;
+    this.supabase = createClient(this.config.url, this.config.anonKey);
+    const { data, error } = await this.supabase.auth.signInAnonymously();
+    if (error) throw new Error(`Anonymous sign-in failed: ${error.message}`);
+
+    const userId = data.session?.user?.id ?? crypto.randomUUID();
+    this.session = {
+      playerId: userId,
+      displayName: generateFishName(),
+      isAnonymous: true,
+    };
   }
 
-  async disconnect(): Promise<void> {}
+  async disconnect(): Promise<void> {
+    if (this.channel && this.supabase) {
+      await this.supabase.removeChannel(this.channel);
+      this.channel = null;
+    }
+    this.currentTerrain = null;
+    this.remotePresences = [];
+  }
 
   async getSession(): Promise<BackendSession> {
     if (this.session) return this.session;
-
-    // Placeholder anonymous session until Supabase auth wiring is added.
-    const playerId = crypto.randomUUID();
-    this.session = {
-      playerId,
-      displayName: `Angler-${playerId.slice(0, 5).toUpperCase()}`,
-      isAnonymous: true,
-    };
-    return this.session;
+    throw new Error('Not connected. Call connect() first.');
   }
 
-  async syncPresence(_state: LocalPresenceState): Promise<RemotePresenceState[]> {
-    // Placeholder: return empty remote set until realtime presence is wired.
-    return [];
+  async syncPresence(state: LocalPresenceState): Promise<RemotePresenceState[]> {
+    if (!this.supabase || !this.session) return [];
+
+    // Switch channels when terrain changes
+    if (state.terrain !== this.currentTerrain) {
+      await this.switchChannel(state.terrain);
+    }
+
+    if (this.channel) {
+      const payload: PresencePayload = {
+        playerId: this.session.playerId,
+        displayName: this.session.displayName,
+        mode: state.mode,
+        px: state.position.x,
+        py: state.position.y,
+        pz: state.position.z,
+        isDeepWater: state.isDeepWater,
+        spotId: state.spotId,
+        timestamp: Date.now(),
+      };
+      await this.channel.track(payload);
+    }
+
+    return this.remotePresences;
+  }
+
+  private async switchChannel(terrain: string): Promise<void> {
+    if (!this.supabase) return;
+
+    // Leave old channel
+    if (this.channel) {
+      await this.supabase.removeChannel(this.channel);
+      this.channel = null;
+      this.remotePresences = [];
+    }
+
+    this.currentTerrain = terrain;
+    const channelName = `presence:terrain:${terrain}`;
+
+    this.channel = this.supabase.channel(channelName, {
+      config: { presence: { key: this.session!.playerId } },
+    });
+
+    this.channel.on('presence', { event: 'sync' }, () => {
+      this.rebuildRemoteList();
+    });
+
+    await this.channel.subscribe((status: string) => {
+      if (status === 'SUBSCRIBED') {
+        console.log(`[multiplayer] Joined channel ${channelName}`);
+      }
+    });
+  }
+
+  private rebuildRemoteList(): void {
+    if (!this.channel || !this.session) return;
+
+    const presenceState = this.channel.presenceState<PresencePayload>();
+    const remotes: RemotePresenceState[] = [];
+
+    for (const [_key, entries] of Object.entries(presenceState)) {
+      // Each key may have multiple presence entries; use the latest
+      const entry = entries[entries.length - 1];
+      if (!entry || entry.playerId === this.session.playerId) continue;
+
+      remotes.push({
+        playerId: entry.playerId,
+        displayName: entry.displayName,
+        terrain: this.currentTerrain as LocalPresenceState['terrain'],
+        mode: entry.mode as LocalPresenceState['mode'],
+        position: { x: entry.px, y: entry.py, z: entry.pz },
+        isDeepWater: entry.isDeepWater,
+        spotId: entry.spotId,
+        timestamp: entry.timestamp,
+        updatedAt: Date.now(),
+      });
+    }
+
+    this.remotePresences = remotes;
   }
 }

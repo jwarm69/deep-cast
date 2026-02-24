@@ -1,9 +1,8 @@
 import { BackendClient, BackendSession } from '../types';
 import { LocalPresenceState, RemotePresenceState } from '../../multiplayer/types';
+import { generateFishName } from '../generateFishName';
 
 const PLAYER_ID_KEY = 'deep-cast-player-id';
-const PLAYER_NAME_KEY = 'deep-cast-player-name';
-
 export class LocalBackendClient implements BackendClient {
   readonly provider = 'local' as const;
   private session: BackendSession | null = null;
@@ -17,10 +16,9 @@ export class LocalBackendClient implements BackendClient {
     if (this.session) return this.session;
 
     const playerId = this.getOrCreatePlayerId();
-    const displayName = this.getOrCreateDisplayName(playerId);
     this.session = {
       playerId,
-      displayName,
+      displayName: generateFishName(),
       isAnonymous: true,
     };
     return this.session;
@@ -41,13 +39,4 @@ export class LocalBackendClient implements BackendClient {
     return id;
   }
 
-  private getOrCreateDisplayName(playerId: string): string {
-    const existing = localStorage.getItem(PLAYER_NAME_KEY);
-    if (existing) return existing;
-
-    const suffix = playerId.slice(0, 5).toUpperCase();
-    const generated = `Angler-${suffix}`;
-    localStorage.setItem(PLAYER_NAME_KEY, generated);
-    return generated;
-  }
 }

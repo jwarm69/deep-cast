@@ -164,7 +164,7 @@ export class GameUI implements Component {
     switch (state) {
       case FishingState.IDLE:
         if (this.playerMode === PlayerMode.BOAT) {
-          this.prompt.textContent = 'WASD to sail | Hold SPACE to cast | E to disembark';
+          this.prompt.textContent = 'WASD to sail | Hold SPACE to cast | E to disembark | TAB shop | J journal';
         } else {
           this.prompt.textContent = 'WASD to move | Hold SPACE to cast | E to board boat | TAB shop | J journal';
         }

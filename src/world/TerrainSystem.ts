@@ -18,6 +18,11 @@ export class TerrainSystem implements Component {
     this.createGround();
     this.createShoreline();
     this.createDock();
+    this.createFisherHuts();
+    this.createShantyProps();
+    this.createBeachedBoat();
+    this.createMarketStall();
+    this.createBoardwalks();
     this.createTrees();
     this.createRocks();
     this.createHills();
@@ -230,6 +235,378 @@ export class TerrainSystem implements Component {
       this.add(chunk);
     }
     this.createBoardingSign();
+  }
+
+  // --- Fisher huts ---
+
+  private createFisherHuts(): void {
+    const wallMat = this.trackMat(new THREE.MeshStandardMaterial({
+      color: this.config.dockColor,
+      roughness: 0.85,
+    }));
+    const roofMat = this.trackMat(new THREE.MeshStandardMaterial({
+      color: this.config.rockColor,
+      roughness: 0.75,
+    }));
+    const frameMat = this.trackMat(new THREE.MeshStandardMaterial({
+      color: 0x3e2723,
+      roughness: 0.9,
+    }));
+
+    // Main hut — larger, near shore to the right of the dock
+    this.buildHut(8, -5, 3.2, 2.8, 3.6, 0.15, wallMat, roofMat, frameMat, true);
+
+    // Smaller huts scattered on land
+    this.buildHut(-10, -8, 2.0, 2.0, 2.2, -0.3, wallMat, roofMat, frameMat, false);
+    this.buildHut(15, -12, 1.8, 1.8, 2.0, 0.4, wallMat, roofMat, frameMat, false);
+    this.buildHut(-6, -16, 2.0, 1.8, 2.4, -0.1, wallMat, roofMat, frameMat, false);
+
+    // Additional shanty huts to fill out the village
+    this.buildHut(-4, -7, 2.4, 2.2, 2.8, 0.2, wallMat, roofMat, frameMat, false);
+    this.buildHut(13, -7, 1.6, 1.6, 1.8, -0.25, wallMat, roofMat, frameMat, false);
+    this.buildHut(-14, -14, 2.2, 2.0, 2.6, 0.35, wallMat, roofMat, frameMat, false);
+    this.buildHut(5, -14, 1.8, 1.8, 2.0, -0.15, wallMat, roofMat, frameMat, false);
+    this.buildHut(10, -18, 2.0, 2.0, 2.2, 0.1, wallMat, roofMat, frameMat, false);
+  }
+
+  private buildHut(
+    x: number, z: number,
+    w: number, h: number, d: number,
+    rotY: number,
+    wallMat: THREE.Material, roofMat: THREE.Material, frameMat: THREE.Material,
+    isMain: boolean,
+  ): void {
+    const baseY = 0.3;
+    const group = new THREE.Group();
+    group.position.set(x, baseY, z);
+    group.rotation.y = rotY;
+
+    // Walls
+    const wallGeo = this.trackGeo(new THREE.BoxGeometry(w, h, d));
+    const walls = new THREE.Mesh(wallGeo, wallMat);
+    walls.position.y = h / 2;
+    walls.castShadow = true;
+    walls.receiveShadow = true;
+    group.add(walls);
+
+    // Peaked roof — triangular prism via extruded shape
+    const roofOverhang = 0.4;
+    const roofW = w + roofOverhang;
+    const roofD = d + roofOverhang;
+    const roofPeak = isMain ? 1.6 : 1.1;
+    const roofShape = new THREE.Shape();
+    roofShape.moveTo(-roofW / 2, 0);
+    roofShape.lineTo(0, roofPeak);
+    roofShape.lineTo(roofW / 2, 0);
+    roofShape.lineTo(-roofW / 2, 0);
+
+    const roofGeo = this.trackGeo(new THREE.ExtrudeGeometry(roofShape, {
+      depth: roofD,
+      bevelEnabled: false,
+    }));
+    const roof = new THREE.Mesh(roofGeo, roofMat);
+    roof.position.set(0, h, -roofD / 2);
+    roof.castShadow = true;
+    group.add(roof);
+
+    // Door frame (front face)
+    const doorH = isMain ? 1.8 : 1.3;
+    const doorW = isMain ? 0.9 : 0.6;
+    const doorGeo = this.trackGeo(new THREE.BoxGeometry(doorW, doorH, 0.08));
+    const door = new THREE.Mesh(doorGeo, frameMat);
+    door.position.set(0, doorH / 2, d / 2 + 0.04);
+    group.add(door);
+
+    // Window on side wall (main hut only)
+    if (isMain) {
+      const winGeo = this.trackGeo(new THREE.BoxGeometry(0.08, 0.6, 0.6));
+      const winMat = this.trackMat(new THREE.MeshStandardMaterial({
+        color: 0x81d4fa,
+        roughness: 0.3,
+        transparent: true,
+        opacity: 0.6,
+      }));
+      const win = new THREE.Mesh(winGeo, winMat);
+      win.position.set(w / 2 + 0.04, h * 0.55, 0);
+      group.add(win);
+
+      // Window frame
+      const wfGeo = this.trackGeo(new THREE.BoxGeometry(0.1, 0.7, 0.7));
+      const wf = new THREE.Mesh(wfGeo, frameMat);
+      wf.position.set(w / 2 + 0.04, h * 0.55, 0);
+      group.add(wf);
+
+      // Signpost outside door
+      const postGeo = this.trackGeo(new THREE.CylinderGeometry(0.05, 0.06, 1.6, 6));
+      const post = new THREE.Mesh(postGeo, frameMat);
+      post.position.set(1.2, 0.8, d / 2 + 0.5);
+      post.castShadow = true;
+      group.add(post);
+
+      const signGeo = this.trackGeo(new THREE.BoxGeometry(0.8, 0.35, 0.06));
+      const sign = new THREE.Mesh(signGeo, wallMat);
+      sign.position.set(1.2, 1.5, d / 2 + 0.5);
+      sign.castShadow = true;
+      group.add(sign);
+    }
+
+    this.add(group);
+  }
+
+  // --- Shanty town props ---
+
+  private createShantyProps(): void {
+    const woodMat = this.trackMat(new THREE.MeshStandardMaterial({
+      color: this.config.dockColor,
+      roughness: 0.85,
+    })) as THREE.MeshStandardMaterial;
+    const barrelMat = this.trackMat(new THREE.MeshStandardMaterial({
+      color: 0x6d4c2a,
+      roughness: 0.8,
+    })) as THREE.MeshStandardMaterial;
+    const ropeMat = this.trackMat(new THREE.MeshStandardMaterial({
+      color: 0xa08060,
+      roughness: 0.9,
+    })) as THREE.MeshStandardMaterial;
+    const netMat = this.trackMat(new THREE.MeshStandardMaterial({
+      color: 0xc8b89a,
+      roughness: 0.9,
+      transparent: true,
+      opacity: 0.7,
+      side: THREE.DoubleSide,
+    })) as THREE.MeshStandardMaterial;
+    const lanternMat = this.trackMat(new THREE.MeshStandardMaterial({
+      color: 0xffb74d,
+      emissive: 0xffb74d,
+      emissiveIntensity: 0.6,
+      roughness: 0.4,
+    })) as THREE.MeshStandardMaterial;
+
+    // --- Barrel clusters ---
+    const barrelGeo = this.trackGeo(new THREE.CylinderGeometry(0.3, 0.3, 0.8, 8));
+    const barrelPositions: [number, number, number[]][] = [
+      [5, -3, [0, 0.6, -0.5]],
+      [-7, -4, [0.4, 0, 0]],
+      [12, -6, [-0.3, 0.5, 0.3]],
+      [-3, -10, [0, -0.4, 0]],
+    ];
+    for (const [bx, bz, offsets] of barrelPositions) {
+      for (let i = 0; i < 2 + Math.floor(offsets.length / 2); i++) {
+        const barrel = new THREE.Mesh(barrelGeo, barrelMat);
+        const ox = (i - 1) * 0.55;
+        const oz = (i % 2) * 0.3;
+        barrel.position.set(bx + ox, 0.3 + 0.4, bz + oz);
+        barrel.rotation.y = i * 0.8;
+        barrel.castShadow = true;
+        this.add(barrel);
+      }
+    }
+
+    // --- Crate stacks ---
+    const crateGeo = this.trackGeo(new THREE.BoxGeometry(0.6, 0.6, 0.6));
+    const cratePositions: [number, number, number][] = [
+      [3, -4, 2],
+      [-5, -6, 3],
+      [10, -8, 1],
+      [-8, -12, 2],
+    ];
+    for (const [cx, cz, count] of cratePositions) {
+      for (let i = 0; i < count; i++) {
+        const crate = new THREE.Mesh(crateGeo, woodMat);
+        crate.position.set(cx + (i % 2) * 0.5, 0.3 + 0.3 + i * 0.55, cz);
+        crate.rotation.y = i * 0.4;
+        crate.castShadow = true;
+        this.add(crate);
+      }
+    }
+
+    // --- Net-drying racks ---
+    const netRackPositions: [number, number][] = [[-6, -2], [10, -3]];
+    const postGeo = this.trackGeo(new THREE.CylinderGeometry(0.04, 0.05, 2.0, 6));
+    const barGeo = this.trackGeo(new THREE.CylinderGeometry(0.03, 0.03, 2.5, 6));
+    const netGeo = this.trackGeo(new THREE.PlaneGeometry(2.3, 1.2));
+    for (const [nx, nz] of netRackPositions) {
+      // Two vertical posts
+      for (const side of [-1.2, 1.2]) {
+        const post = new THREE.Mesh(postGeo, woodMat);
+        post.position.set(nx + side, 0.3 + 1.0, nz);
+        post.castShadow = true;
+        this.add(post);
+      }
+      // Horizontal bar
+      const bar = new THREE.Mesh(barGeo, woodMat);
+      bar.position.set(nx, 0.3 + 1.9, nz);
+      bar.rotation.z = Math.PI / 2;
+      this.add(bar);
+      // Net hanging from bar
+      const net = new THREE.Mesh(netGeo, netMat);
+      net.position.set(nx, 0.3 + 1.2, nz + 0.02);
+      this.add(net);
+    }
+
+    // --- Rope coils ---
+    const ropeGeo = this.trackGeo(new THREE.TorusGeometry(0.25, 0.06, 8, 16));
+    const ropePositions: [number, number][] = [[1.5, -6], [-1.5, -6], [6, -4]];
+    for (const [rx, rz] of ropePositions) {
+      const rope = new THREE.Mesh(ropeGeo, ropeMat);
+      rope.position.set(rx, 0.35, rz);
+      rope.rotation.x = -Math.PI / 2;
+      this.add(rope);
+    }
+
+    // --- Lantern posts ---
+    const lanternPostGeo = this.trackGeo(new THREE.CylinderGeometry(0.04, 0.05, 2.5, 6));
+    const lanternHeadGeo = this.trackGeo(new THREE.BoxGeometry(0.2, 0.25, 0.2));
+    const lanternPositions: [number, number][] = [
+      [0, -8], [4, -10], [-4, -10], [8, -14], [-8, -14],
+    ];
+    for (const [lx, lz] of lanternPositions) {
+      const post = new THREE.Mesh(lanternPostGeo, woodMat);
+      post.position.set(lx, 0.3 + 1.25, lz);
+      post.castShadow = true;
+      this.add(post);
+      const head = new THREE.Mesh(lanternHeadGeo, lanternMat);
+      head.position.set(lx, 0.3 + 2.6, lz);
+      this.add(head);
+    }
+  }
+
+  private createBeachedBoat(): void {
+    const woodMat = this.trackMat(new THREE.MeshStandardMaterial({
+      color: this.config.dockColor,
+      roughness: 0.9,
+    }));
+    const darkWoodMat = this.trackMat(new THREE.MeshStandardMaterial({
+      color: 0x3e2723,
+      roughness: 0.85,
+    }));
+
+    const group = new THREE.Group();
+    group.position.set(-12, 0.3, -2);
+    group.rotation.z = 0.3;
+    group.rotation.y = 0.6;
+
+    // Hull — elongated box
+    const hullGeo = this.trackGeo(new THREE.BoxGeometry(1.4, 0.8, 4.0));
+    const hull = new THREE.Mesh(hullGeo, woodMat);
+    hull.position.y = 0.4;
+    hull.castShadow = true;
+    group.add(hull);
+
+    // Keel strip
+    const keelGeo = this.trackGeo(new THREE.BoxGeometry(0.15, 0.15, 4.2));
+    const keel = new THREE.Mesh(keelGeo, darkWoodMat);
+    keel.position.y = 0;
+    group.add(keel);
+
+    // Bow (front taper)
+    const bowGeo = this.trackGeo(new THREE.ConeGeometry(0.6, 1.2, 4));
+    const bow = new THREE.Mesh(bowGeo, woodMat);
+    bow.position.set(0, 0.4, 2.4);
+    bow.rotation.x = Math.PI / 2;
+    bow.castShadow = true;
+    group.add(bow);
+
+    // Ribs (cross-planks)
+    const ribGeo = this.trackGeo(new THREE.BoxGeometry(1.5, 0.08, 0.12));
+    for (let i = 0; i < 4; i++) {
+      const rib = new THREE.Mesh(ribGeo, darkWoodMat);
+      rib.position.set(0, 0.82, -1.2 + i * 0.9);
+      group.add(rib);
+    }
+
+    this.add(group);
+  }
+
+  private createMarketStall(): void {
+    const postMat = this.trackMat(new THREE.MeshStandardMaterial({
+      color: this.config.dockColor,
+      roughness: 0.85,
+    }));
+    const canopyMat = this.trackMat(new THREE.MeshStandardMaterial({
+      color: 0xc62828,
+      roughness: 0.6,
+      transparent: true,
+      opacity: 0.8,
+      side: THREE.DoubleSide,
+    }));
+    const tableMat = this.trackMat(new THREE.MeshStandardMaterial({
+      color: this.config.rockColor,
+      roughness: 0.8,
+    }));
+
+    const group = new THREE.Group();
+    group.position.set(12, 0.3, -4);
+    group.rotation.y = -0.2;
+
+    // 4 corner posts
+    const postGeo = this.trackGeo(new THREE.CylinderGeometry(0.06, 0.07, 2.8, 6));
+    const postPositions = [
+      [-1.4, 0, -1.0], [1.4, 0, -1.0],
+      [-1.4, 0, 1.0], [1.4, 0, 1.0],
+    ];
+    for (const [px, , pz] of postPositions) {
+      const post = new THREE.Mesh(postGeo, postMat);
+      post.position.set(px, 1.4, pz);
+      post.castShadow = true;
+      group.add(post);
+    }
+
+    // Canopy
+    const canopyGeo = this.trackGeo(new THREE.BoxGeometry(3.2, 0.08, 2.4));
+    const canopy = new THREE.Mesh(canopyGeo, canopyMat);
+    canopy.position.set(0, 2.8, 0);
+    canopy.castShadow = true;
+    group.add(canopy);
+
+    // Table/counter
+    const tableGeo = this.trackGeo(new THREE.BoxGeometry(2.6, 0.12, 1.2));
+    const table = new THREE.Mesh(tableGeo, tableMat);
+    table.position.set(0, 1.0, 0);
+    table.castShadow = true;
+    group.add(table);
+
+    // Table legs
+    const legGeo = this.trackGeo(new THREE.CylinderGeometry(0.04, 0.04, 1.0, 6));
+    for (const lx of [-1.1, 1.1]) {
+      for (const lz of [-0.4, 0.4]) {
+        const leg = new THREE.Mesh(legGeo, postMat);
+        leg.position.set(lx, 0.5, lz);
+        group.add(leg);
+      }
+    }
+
+    this.add(group);
+  }
+
+  private createBoardwalks(): void {
+    const plankMat = this.trackMat(new THREE.MeshStandardMaterial({
+      color: this.config.dockColor,
+      roughness: 0.85,
+    }));
+
+    // Boardwalk from dock area toward main hut
+    const walk1Geo = this.trackGeo(new THREE.BoxGeometry(4.5, 0.1, 1.5));
+    const walk1 = new THREE.Mesh(walk1Geo, plankMat);
+    walk1.position.set(4, 0.35, -4);
+    walk1.receiveShadow = true;
+    this.add(walk1);
+
+    // Boardwalk along shore to left
+    const walk2Geo = this.trackGeo(new THREE.BoxGeometry(3.0, 0.1, 1.5));
+    const walk2 = new THREE.Mesh(walk2Geo, plankMat);
+    walk2.position.set(-3, 0.35, -5);
+    walk2.rotation.y = 0.4;
+    walk2.receiveShadow = true;
+    this.add(walk2);
+
+    // Short connector near left hut
+    const walk3Geo = this.trackGeo(new THREE.BoxGeometry(2.5, 0.1, 1.2));
+    const walk3 = new THREE.Mesh(walk3Geo, plankMat);
+    walk3.position.set(-7, 0.35, -7);
+    walk3.rotation.y = -0.2;
+    walk3.receiveShadow = true;
+    this.add(walk3);
   }
 
   private createTrees(): void {

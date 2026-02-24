@@ -251,8 +251,8 @@ export class FishingStateMachine implements Component {
   // --- REELING ---
   private updateReeling(dt: number): void {
     const reelMult = this.player?.activeRod.reelSpeedMultiplier ?? 1;
-    const fillRate = ((1 - this.reelDifficulty) * 0.6 + 0.15) * reelMult;
-    const drainRate = 0.12 + this.reelDifficulty * 0.15;
+    const fillRate = ((1 - this.reelDifficulty) * 1.0 + 0.3) * reelMult;
+    const drainRate = 0.08 + this.reelDifficulty * 0.12;
 
     if (this.actionDown) {
       this.reelProgress += fillRate * dt;

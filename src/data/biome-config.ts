@@ -1,5 +1,36 @@
 export type TerrainType = 'lake' | 'tropical' | 'arctic' | 'swamp' | 'mountain' | 'volcano';
 
+export interface HutDef {
+  x: number; z: number;
+  w: number; h: number; d: number;
+  rotY: number; isMain: boolean;
+}
+
+export interface BoardwalkDef {
+  x: number; z: number;
+  w: number; d: number;
+  rotY: number;
+}
+
+export interface PropPositions {
+  barrels: [number, number][];
+  crates: [number, number, number][];
+  netRacks: [number, number][];
+  ropeCoils: [number, number][];
+  lanterns: [number, number][];
+}
+
+export interface BiomeLayout {
+  huts: HutDef[];
+  treePositions: [number, number][];
+  shoreRockPositions: [number, number][];
+  waterRockPositions: [number, number][];
+  beachedBoat: { x: number; z: number; rotY: number; rotZ: number } | null;
+  marketStall: { x: number; z: number; rotY: number } | null;
+  boardwalks: BoardwalkDef[];
+  props: PropPositions;
+}
+
 export interface BiomeConfig {
   name: string;
   terrain: TerrainType;
@@ -56,6 +87,9 @@ export interface BiomeConfig {
   shoreRockCount: number;
   waterRockCount: number;
   hillCount: number;
+
+  // Map layout
+  layout: BiomeLayout;
 }
 
 export const BIOME_CONFIGS: Record<TerrainType, BiomeConfig> = {
@@ -109,6 +143,46 @@ export const BIOME_CONFIGS: Record<TerrainType, BiomeConfig> = {
     shoreRockCount: 8,
     waterRockCount: 5,
     hillCount: 6,
+
+    layout: {
+      huts: [
+        { x: 8, z: -5, w: 3.2, h: 2.8, d: 3.6, rotY: 0.15, isMain: true },
+        { x: -10, z: -8, w: 2.0, h: 2.0, d: 2.2, rotY: -0.3, isMain: false },
+        { x: 15, z: -12, w: 1.8, h: 1.8, d: 2.0, rotY: 0.4, isMain: false },
+        { x: -6, z: -16, w: 2.0, h: 1.8, d: 2.4, rotY: -0.1, isMain: false },
+        { x: -4, z: -7, w: 2.4, h: 2.2, d: 2.8, rotY: 0.2, isMain: false },
+        { x: 13, z: -7, w: 1.6, h: 1.6, d: 1.8, rotY: -0.25, isMain: false },
+        { x: -14, z: -14, w: 2.2, h: 2.0, d: 2.6, rotY: 0.35, isMain: false },
+        { x: 5, z: -14, w: 1.8, h: 1.8, d: 2.0, rotY: -0.15, isMain: false },
+        { x: 10, z: -18, w: 2.0, h: 2.0, d: 2.2, rotY: 0.1, isMain: false },
+      ],
+      treePositions: [
+        [-8, -8], [-12, -15], [7, -10], [11, -18], [-15, -12],
+        [14, -14], [-6, -20], [4, -22], [-18, -18], [18, -16],
+        [-10, -25], [9, -28], [-20, -22], [15, -25], [0, -30],
+      ],
+      shoreRockPositions: [
+        [-5, -3], [6, -2], [-8, -5], [9, -4], [-3, -1.5],
+        [4, -2.5], [-11, -6], [12, -3],
+      ],
+      waterRockPositions: [
+        [-7, 0.5], [8, 0.3], [-12, 0.8], [14, 0.2], [-3, 0.6],
+      ],
+      beachedBoat: { x: -12, z: -2, rotY: 0.6, rotZ: 0.3 },
+      marketStall: { x: 12, z: -4, rotY: -0.2 },
+      boardwalks: [
+        { x: 4, z: -4, w: 4.5, d: 1.5, rotY: 0 },
+        { x: -3, z: -5, w: 3.0, d: 1.5, rotY: 0.4 },
+        { x: -7, z: -7, w: 2.5, d: 1.2, rotY: -0.2 },
+      ],
+      props: {
+        barrels: [[5, -3], [-7, -4], [12, -6], [-3, -10]],
+        crates: [[3, -4, 2], [-5, -6, 3], [10, -8, 1], [-8, -12, 2]],
+        netRacks: [[-6, -2], [10, -3]],
+        ropeCoils: [[1.5, -6], [-1.5, -6], [6, -4]],
+        lanterns: [[0, -8], [4, -10], [-4, -10], [8, -14], [-8, -14]],
+      },
+    },
   },
 
   tropical: {
@@ -159,8 +233,43 @@ export const BIOME_CONFIGS: Record<TerrainType, BiomeConfig> = {
 
     treeCount: 12,
     shoreRockCount: 6,
-    waterRockCount: 4,
+    waterRockCount: 8,
     hillCount: 4,
+
+    layout: {
+      huts: [
+        { x: -12, z: -5, w: 3.5, h: 2.6, d: 4.0, rotY: -0.2, isMain: true },
+        { x: 6, z: -6, w: 2.0, h: 2.0, d: 2.2, rotY: 0.3, isMain: false },
+        { x: 14, z: -8, w: 1.8, h: 1.8, d: 2.0, rotY: -0.1, isMain: false },
+        { x: -6, z: -10, w: 2.2, h: 2.0, d: 2.4, rotY: 0.15, isMain: false },
+        { x: 10, z: -14, w: 2.0, h: 1.8, d: 2.2, rotY: -0.25, isMain: false },
+      ],
+      treePositions: [
+        [-14, -16], [-16, -18], [-12, -20], [-18, -14], [-10, -18],
+        [12, -18], [14, -20], [16, -16], [10, -22], [18, -18],
+        [-8, -4], [4, -3],
+      ],
+      shoreRockPositions: [
+        [-3, -2], [5, -1.5], [-8, -3], [10, -2], [15, -3], [-12, -4],
+      ],
+      waterRockPositions: [
+        [-5, 0.5], [3, 0.3], [-9, 0.7], [8, 0.4],
+        [12, 0.6], [-14, 0.8], [6, 1.0], [-2, 0.5],
+      ],
+      beachedBoat: { x: 14, z: -3, rotY: -0.4, rotZ: 0.25 },
+      marketStall: { x: -10, z: -8, rotY: 0.3 },
+      boardwalks: [
+        { x: -6, z: -3, w: 5.0, d: 1.5, rotY: 0 },
+        { x: 4, z: -3, w: 5.0, d: 1.5, rotY: 0 },
+      ],
+      props: {
+        barrels: [[8, -5], [-4, -6], [14, -4]],
+        crates: [[5, -5, 2], [-8, -7, 1], [12, -6, 2]],
+        netRacks: [[-5, -3], [8, -4]],
+        ropeCoils: [[2, -5], [-2, -4], [10, -5]],
+        lanterns: [[-6, -6], [6, -8], [0, -5], [12, -10], [-10, -10]],
+      },
+    },
   },
 
   arctic: {
@@ -213,6 +322,39 @@ export const BIOME_CONFIGS: Record<TerrainType, BiomeConfig> = {
     shoreRockCount: 10,
     waterRockCount: 6,
     hillCount: 8,
+
+    layout: {
+      huts: [
+        { x: 0, z: -10, w: 3.0, h: 2.8, d: 3.4, rotY: 0, isMain: true },
+        { x: -4, z: -9, w: 2.0, h: 2.0, d: 2.2, rotY: 0.2, isMain: false },
+        { x: 4, z: -9, w: 2.0, h: 2.0, d: 2.2, rotY: -0.15, isMain: false },
+        { x: -3, z: -13, w: 1.8, h: 1.8, d: 2.0, rotY: 0.1, isMain: false },
+        { x: 3, z: -13, w: 2.0, h: 1.8, d: 2.2, rotY: -0.2, isMain: false },
+        { x: 6, z: -12, w: 1.6, h: 1.6, d: 1.8, rotY: 0.3, isMain: false },
+      ],
+      treePositions: [
+        [-14, -22], [10, -25], [-8, -28], [16, -20],
+        [0, -30], [-18, -24], [6, -26], [-12, -30],
+        [14, -28], [18, -26],
+      ],
+      shoreRockPositions: [
+        [-8, -3], [-10, -4], [-12, -5], [-14, -3], [-6, -2],
+        [-4, -1.5], [-11, -6], [-16, -4], [-9, -5.5], [-13, -6],
+      ],
+      waterRockPositions: [
+        [-7, 0.5], [-10, 0.8], [-4, 0.3], [8, 0.4], [-12, 0.6], [3, 0.5],
+      ],
+      beachedBoat: null,
+      marketStall: null,
+      boardwalks: [],
+      props: {
+        barrels: [[1, -8], [-2, -11], [5, -10]],
+        crates: [[-1, -9, 3], [4, -11, 2], [-3, -12, 1]],
+        netRacks: [[2, -7]],
+        ropeCoils: [[0, -7], [3, -8]],
+        lanterns: [[0, -9], [-3, -10], [3, -10], [-1, -13], [5, -11], [1, -12]],
+      },
+    },
   },
 
   swamp: {
@@ -263,8 +405,47 @@ export const BIOME_CONFIGS: Record<TerrainType, BiomeConfig> = {
 
     treeCount: 18,
     shoreRockCount: 6,
-    waterRockCount: 4,
+    waterRockCount: 6,
     hillCount: 4,
+
+    layout: {
+      huts: [
+        { x: 10, z: -12, w: 3.0, h: 2.6, d: 3.2, rotY: 0.3, isMain: true },
+        { x: -8, z: -6, w: 2.0, h: 2.0, d: 2.2, rotY: -0.2, isMain: false },
+        { x: -14, z: -14, w: 1.8, h: 1.8, d: 2.0, rotY: 0.15, isMain: false },
+        { x: 6, z: -7, w: 2.2, h: 2.0, d: 2.4, rotY: -0.1, isMain: false },
+        { x: -10, z: -20, w: 2.0, h: 1.8, d: 2.2, rotY: 0.25, isMain: false },
+        { x: 14, z: -18, w: 1.8, h: 1.8, d: 2.0, rotY: -0.3, isMain: false },
+        { x: -4, z: -16, w: 2.0, h: 2.0, d: 2.2, rotY: 0.1, isMain: false },
+      ],
+      treePositions: [
+        [-6, -5], [4, -4], [-12, -8], [8, -9], [-3, -10],
+        [12, -6], [-16, -12], [16, -14], [-8, -18], [6, -16],
+        [-10, -22], [10, -20], [-14, -26], [14, -24], [0, -14],
+        [-18, -16], [18, -10], [-5, -24],
+      ],
+      shoreRockPositions: [
+        [-4, -2], [3, -1.5], [-9, -3], [7, -2.5], [-13, -4], [11, -3],
+      ],
+      waterRockPositions: [
+        [-6, 0.5], [5, 0.3], [-10, 0.7], [8, 0.4], [12, 0.6], [-3, 0.8],
+      ],
+      beachedBoat: { x: 15, z: -3, rotY: 0.4, rotZ: 0.5 },
+      marketStall: null,
+      boardwalks: [
+        { x: -2, z: -6, w: 4.0, d: 1.2, rotY: -0.15 },
+        { x: 3, z: -10, w: 3.5, d: 1.0, rotY: 0.3 },
+        { x: -6, z: -14, w: 3.0, d: 1.0, rotY: -0.1 },
+        { x: 8, z: -15, w: 3.5, d: 1.0, rotY: 0.2 },
+      ],
+      props: {
+        barrels: [[-5, -5], [2, -6], [-7, -8]],
+        crates: [[-3, -5, 2], [4, -7, 1], [-6, -9, 3]],
+        netRacks: [[-4, -3]],
+        ropeCoils: [[-2, -4], [1, -5]],
+        lanterns: [[-6, -7], [6, -8], [-10, -14], [10, -13], [-4, -17]],
+      },
+    },
   },
 
   mountain: {
@@ -317,6 +498,41 @@ export const BIOME_CONFIGS: Record<TerrainType, BiomeConfig> = {
     shoreRockCount: 12,
     waterRockCount: 6,
     hillCount: 8,
+
+    layout: {
+      huts: [
+        { x: 0, z: -12, w: 4.0, h: 3.2, d: 4.5, rotY: 0, isMain: true },
+        { x: -8, z: -16, w: 2.0, h: 2.0, d: 2.2, rotY: 0.3, isMain: false },
+        { x: -4, z: -20, w: 1.8, h: 1.8, d: 2.0, rotY: 0.15, isMain: false },
+        { x: 4, z: -20, w: 1.8, h: 1.8, d: 2.0, rotY: -0.15, isMain: false },
+        { x: 8, z: -16, w: 2.0, h: 2.0, d: 2.2, rotY: -0.3, isMain: false },
+      ],
+      treePositions: [
+        [-12, -22], [-8, -24], [-4, -22], [0, -24], [4, -22],
+        [8, -24], [12, -22], [-16, -20], [16, -20], [-14, -26],
+        [14, -26], [-10, -28], [10, -28], [0, -28],
+      ],
+      shoreRockPositions: [
+        [-6, -3], [5, -2], [-10, -5], [9, -4], [-3, -2],
+        [3, -1.5], [-13, -6], [12, -3], [-8, -4], [8, -5],
+        [14, -6], [-15, -4],
+      ],
+      waterRockPositions: [
+        [-7, 0.5], [8, 0.3], [-12, 0.8], [14, 0.2], [-3, 0.6], [10, 0.7],
+      ],
+      beachedBoat: { x: -15, z: -4, rotY: 0.8, rotZ: 0.2 },
+      marketStall: { x: 3, z: -24, rotY: -0.1 },
+      boardwalks: [
+        { x: 0, z: -7, w: 8.0, d: 2.0, rotY: 0 },
+      ],
+      props: {
+        barrels: [[3, -10], [-3, -10], [6, -14]],
+        crates: [[2, -11, 2], [-2, -11, 2], [5, -15, 1]],
+        netRacks: [[4, -6]],
+        ropeCoils: [[1, -8], [-1, -8]],
+        lanterns: [[-3, -6], [3, -6], [0, -4], [-6, -8], [6, -8], [0, -10]],
+      },
+    },
   },
 
   volcano: {
@@ -369,5 +585,36 @@ export const BIOME_CONFIGS: Record<TerrainType, BiomeConfig> = {
     shoreRockCount: 14,
     waterRockCount: 8,
     hillCount: 6,
+
+    layout: {
+      huts: [
+        { x: -10, z: -8, w: 3.5, h: 3.0, d: 4.0, rotY: 0.2, isMain: true },
+        { x: -6, z: -12, w: 2.0, h: 2.0, d: 2.2, rotY: -0.15, isMain: false },
+        { x: -12, z: -14, w: 1.8, h: 1.8, d: 2.0, rotY: 0.3, isMain: false },
+      ],
+      treePositions: [
+        [-18, -16], [18, -14], [-16, -22], [16, -20],
+        [-20, -18], [20, -16], [-14, -26], [14, -24],
+      ],
+      shoreRockPositions: [
+        [-5, -3], [6, -2], [-8, -5], [9, -4], [-3, -1.5],
+        [4, -2.5], [-11, -6], [12, -3], [-14, -4], [16, -5],
+        [7, -3.5], [-6, -4.5], [14, -6], [-10, -2],
+      ],
+      waterRockPositions: [
+        [-7, 0.5], [8, 0.3], [-12, 0.8], [14, 0.2],
+        [-3, 0.6], [10, 0.7], [5, 0.4], [-9, 0.9],
+      ],
+      beachedBoat: null,
+      marketStall: { x: 10, z: -8, rotY: -0.3 },
+      boardwalks: [],
+      props: {
+        barrels: [[-8, -6], [-4, -9], [-10, -10], [-6, -5], [8, -6]],
+        crates: [[-7, -7, 3], [-3, -10, 2], [9, -7, 2]],
+        netRacks: [],
+        ropeCoils: [[-5, -7]],
+        lanterns: [[-8, -9], [-5, -11], [10, -9]],
+      },
+    },
   },
 };

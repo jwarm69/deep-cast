@@ -254,20 +254,9 @@ export class TerrainSystem implements Component {
       roughness: 0.9,
     }));
 
-    // Main hut — larger, near shore to the right of the dock
-    this.buildHut(8, -5, 3.2, 2.8, 3.6, 0.15, wallMat, roofMat, frameMat, true);
-
-    // Smaller huts scattered on land
-    this.buildHut(-10, -8, 2.0, 2.0, 2.2, -0.3, wallMat, roofMat, frameMat, false);
-    this.buildHut(15, -12, 1.8, 1.8, 2.0, 0.4, wallMat, roofMat, frameMat, false);
-    this.buildHut(-6, -16, 2.0, 1.8, 2.4, -0.1, wallMat, roofMat, frameMat, false);
-
-    // Additional shanty huts to fill out the village
-    this.buildHut(-4, -7, 2.4, 2.2, 2.8, 0.2, wallMat, roofMat, frameMat, false);
-    this.buildHut(13, -7, 1.6, 1.6, 1.8, -0.25, wallMat, roofMat, frameMat, false);
-    this.buildHut(-14, -14, 2.2, 2.0, 2.6, 0.35, wallMat, roofMat, frameMat, false);
-    this.buildHut(5, -14, 1.8, 1.8, 2.0, -0.15, wallMat, roofMat, frameMat, false);
-    this.buildHut(10, -18, 2.0, 2.0, 2.2, 0.1, wallMat, roofMat, frameMat, false);
+    for (const hut of this.config.layout.huts) {
+      this.buildHut(hut.x, hut.z, hut.w, hut.h, hut.d, hut.rotY, wallMat, roofMat, frameMat, hut.isMain);
+    }
   }
 
   private buildHut(
@@ -385,14 +374,8 @@ export class TerrainSystem implements Component {
 
     // --- Barrel clusters ---
     const barrelGeo = this.trackGeo(new THREE.CylinderGeometry(0.3, 0.3, 0.8, 8));
-    const barrelPositions: [number, number, number[]][] = [
-      [5, -3, [0, 0.6, -0.5]],
-      [-7, -4, [0.4, 0, 0]],
-      [12, -6, [-0.3, 0.5, 0.3]],
-      [-3, -10, [0, -0.4, 0]],
-    ];
-    for (const [bx, bz, offsets] of barrelPositions) {
-      for (let i = 0; i < 2 + Math.floor(offsets.length / 2); i++) {
+    for (const [bx, bz] of this.config.layout.props.barrels) {
+      for (let i = 0; i < 3; i++) {
         const barrel = new THREE.Mesh(barrelGeo, barrelMat);
         const ox = (i - 1) * 0.55;
         const oz = (i % 2) * 0.3;
@@ -405,13 +388,7 @@ export class TerrainSystem implements Component {
 
     // --- Crate stacks ---
     const crateGeo = this.trackGeo(new THREE.BoxGeometry(0.6, 0.6, 0.6));
-    const cratePositions: [number, number, number][] = [
-      [3, -4, 2],
-      [-5, -6, 3],
-      [10, -8, 1],
-      [-8, -12, 2],
-    ];
-    for (const [cx, cz, count] of cratePositions) {
+    for (const [cx, cz, count] of this.config.layout.props.crates) {
       for (let i = 0; i < count; i++) {
         const crate = new THREE.Mesh(crateGeo, woodMat);
         crate.position.set(cx + (i % 2) * 0.5, 0.3 + 0.3 + i * 0.55, cz);
@@ -422,24 +399,20 @@ export class TerrainSystem implements Component {
     }
 
     // --- Net-drying racks ---
-    const netRackPositions: [number, number][] = [[-6, -2], [10, -3]];
     const postGeo = this.trackGeo(new THREE.CylinderGeometry(0.04, 0.05, 2.0, 6));
     const barGeo = this.trackGeo(new THREE.CylinderGeometry(0.03, 0.03, 2.5, 6));
     const netGeo = this.trackGeo(new THREE.PlaneGeometry(2.3, 1.2));
-    for (const [nx, nz] of netRackPositions) {
-      // Two vertical posts
+    for (const [nx, nz] of this.config.layout.props.netRacks) {
       for (const side of [-1.2, 1.2]) {
         const post = new THREE.Mesh(postGeo, woodMat);
         post.position.set(nx + side, 0.3 + 1.0, nz);
         post.castShadow = true;
         this.add(post);
       }
-      // Horizontal bar
       const bar = new THREE.Mesh(barGeo, woodMat);
       bar.position.set(nx, 0.3 + 1.9, nz);
       bar.rotation.z = Math.PI / 2;
       this.add(bar);
-      // Net hanging from bar
       const net = new THREE.Mesh(netGeo, netMat);
       net.position.set(nx, 0.3 + 1.2, nz + 0.02);
       this.add(net);
@@ -447,8 +420,7 @@ export class TerrainSystem implements Component {
 
     // --- Rope coils ---
     const ropeGeo = this.trackGeo(new THREE.TorusGeometry(0.25, 0.06, 8, 16));
-    const ropePositions: [number, number][] = [[1.5, -6], [-1.5, -6], [6, -4]];
-    for (const [rx, rz] of ropePositions) {
+    for (const [rx, rz] of this.config.layout.props.ropeCoils) {
       const rope = new THREE.Mesh(ropeGeo, ropeMat);
       rope.position.set(rx, 0.35, rz);
       rope.rotation.x = -Math.PI / 2;
@@ -458,10 +430,7 @@ export class TerrainSystem implements Component {
     // --- Lantern posts ---
     const lanternPostGeo = this.trackGeo(new THREE.CylinderGeometry(0.04, 0.05, 2.5, 6));
     const lanternHeadGeo = this.trackGeo(new THREE.BoxGeometry(0.2, 0.25, 0.2));
-    const lanternPositions: [number, number][] = [
-      [0, -8], [4, -10], [-4, -10], [8, -14], [-8, -14],
-    ];
-    for (const [lx, lz] of lanternPositions) {
+    for (const [lx, lz] of this.config.layout.props.lanterns) {
       const post = new THREE.Mesh(lanternPostGeo, woodMat);
       post.position.set(lx, 0.3 + 1.25, lz);
       post.castShadow = true;
@@ -473,6 +442,9 @@ export class TerrainSystem implements Component {
   }
 
   private createBeachedBoat(): void {
+    const boatLayout = this.config.layout.beachedBoat;
+    if (!boatLayout) return;
+
     const woodMat = this.trackMat(new THREE.MeshStandardMaterial({
       color: this.config.dockColor,
       roughness: 0.9,
@@ -483,9 +455,9 @@ export class TerrainSystem implements Component {
     }));
 
     const group = new THREE.Group();
-    group.position.set(-12, 0.3, -2);
-    group.rotation.z = 0.3;
-    group.rotation.y = 0.6;
+    group.position.set(boatLayout.x, 0.3, boatLayout.z);
+    group.rotation.z = boatLayout.rotZ;
+    group.rotation.y = boatLayout.rotY;
 
     // Hull — elongated box
     const hullGeo = this.trackGeo(new THREE.BoxGeometry(1.4, 0.8, 4.0));
@@ -520,6 +492,9 @@ export class TerrainSystem implements Component {
   }
 
   private createMarketStall(): void {
+    const stallLayout = this.config.layout.marketStall;
+    if (!stallLayout) return;
+
     const postMat = this.trackMat(new THREE.MeshStandardMaterial({
       color: this.config.dockColor,
       roughness: 0.85,
@@ -537,8 +512,8 @@ export class TerrainSystem implements Component {
     }));
 
     const group = new THREE.Group();
-    group.position.set(12, 0.3, -4);
-    group.rotation.y = -0.2;
+    group.position.set(stallLayout.x, 0.3, stallLayout.z);
+    group.rotation.y = stallLayout.rotY;
 
     // 4 corner posts
     const postGeo = this.trackGeo(new THREE.CylinderGeometry(0.06, 0.07, 2.8, 6));
@@ -581,33 +556,21 @@ export class TerrainSystem implements Component {
   }
 
   private createBoardwalks(): void {
+    if (this.config.layout.boardwalks.length === 0) return;
+
     const plankMat = this.trackMat(new THREE.MeshStandardMaterial({
       color: this.config.dockColor,
       roughness: 0.85,
     }));
 
-    // Boardwalk from dock area toward main hut
-    const walk1Geo = this.trackGeo(new THREE.BoxGeometry(4.5, 0.1, 1.5));
-    const walk1 = new THREE.Mesh(walk1Geo, plankMat);
-    walk1.position.set(4, 0.35, -4);
-    walk1.receiveShadow = true;
-    this.add(walk1);
-
-    // Boardwalk along shore to left
-    const walk2Geo = this.trackGeo(new THREE.BoxGeometry(3.0, 0.1, 1.5));
-    const walk2 = new THREE.Mesh(walk2Geo, plankMat);
-    walk2.position.set(-3, 0.35, -5);
-    walk2.rotation.y = 0.4;
-    walk2.receiveShadow = true;
-    this.add(walk2);
-
-    // Short connector near left hut
-    const walk3Geo = this.trackGeo(new THREE.BoxGeometry(2.5, 0.1, 1.2));
-    const walk3 = new THREE.Mesh(walk3Geo, plankMat);
-    walk3.position.set(-7, 0.35, -7);
-    walk3.rotation.y = -0.2;
-    walk3.receiveShadow = true;
-    this.add(walk3);
+    for (const bw of this.config.layout.boardwalks) {
+      const geo = this.trackGeo(new THREE.BoxGeometry(bw.w, 0.1, bw.d));
+      const walk = new THREE.Mesh(geo, plankMat);
+      walk.position.set(bw.x, 0.35, bw.z);
+      walk.rotation.y = bw.rotY;
+      walk.receiveShadow = true;
+      this.add(walk);
+    }
   }
 
   private createTrees(): void {
@@ -620,15 +583,7 @@ export class TerrainSystem implements Component {
       roughness: 0.7,
     })) as THREE.MeshStandardMaterial;
 
-    // Generate positions — use fixed seed pattern for consistency
-    const basePositions = [
-      [-8, -8], [-12, -15], [7, -10], [11, -18], [-15, -12],
-      [14, -14], [-6, -20], [4, -22], [-18, -18], [18, -16],
-      [-10, -25], [9, -28], [-20, -22], [15, -25], [0, -30],
-    ];
-    const treePositions = basePositions.slice(0, this.config.treeCount);
-
-    for (const [x, z] of treePositions) {
+    for (const [x, z] of this.config.layout.treePositions) {
       switch (this.config.treeStyle) {
         case 'palm':
           this.createPalmTree(x, z, trunkMat, leafMat);
@@ -726,11 +681,7 @@ export class TerrainSystem implements Component {
     }));
 
     // Shore rocks
-    const shoreRockPositions = [
-      [-5, -3], [6, -2], [-8, -5], [9, -4], [-3, -1.5],
-      [4, -2.5], [-11, -6], [12, -3], [-14, -4], [16, -5],
-    ];
-    for (const [x, z] of shoreRockPositions.slice(0, this.config.shoreRockCount)) {
+    for (const [x, z] of this.config.layout.shoreRockPositions) {
       const size = 0.3 + Math.random() * 0.8;
       const rockGeo = this.trackGeo(new THREE.DodecahedronGeometry(size, 1));
       const rock = new THREE.Mesh(rockGeo, rockMat);
@@ -743,10 +694,7 @@ export class TerrainSystem implements Component {
     }
 
     // Waterline rocks
-    const waterlineRockPositions = [
-      [-7, 0.5], [8, 0.3], [-12, 0.8], [14, 0.2], [-3, 0.6], [10, 0.7],
-    ];
-    for (const [x, z] of waterlineRockPositions.slice(0, this.config.waterRockCount)) {
+    for (const [x, z] of this.config.layout.waterRockPositions) {
       const size = 0.5 + Math.random() * 1.0;
       const rockGeo = this.trackGeo(new THREE.DodecahedronGeometry(size, 1));
       const rock = new THREE.Mesh(rockGeo, rockMat);

@@ -13,19 +13,30 @@ interface RemotePlayerEntry {
   label: THREE.Sprite;
   targetPos: THREE.Vector3;
   lastSeen: number;
+  activity: string;
 }
 
-function makeNameTexture(name: string): THREE.Texture {
+const ACTIVITY_ICONS: Record<string, string> = {
+  casting: '🎣',
+  waiting: '🎣',
+  reeling: '💪',
+  caught: '🏆',
+};
+
+function makeNameTexture(name: string, activity: string): THREE.Texture {
   const canvas = document.createElement('canvas');
   canvas.width = 256;
   canvas.height = 64;
   const ctx = canvas.getContext('2d')!;
 
+  const icon = ACTIVITY_ICONS[activity];
+  const text = icon ? `${name} ${icon}` : name;
+
   ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
   ctx.font = 'bold 28px sans-serif';
   const radius = 8;
   const pad = 12;
-  const measured = ctx.measureText(name).width + pad * 2;
+  const measured = ctx.measureText(text).width + pad * 2;
   const boxW = Math.min(measured, 256);
   const boxX = (256 - boxW) / 2;
   ctx.beginPath();
@@ -36,7 +47,7 @@ function makeNameTexture(name: string): THREE.Texture {
   ctx.font = 'bold 28px sans-serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText(name, 128, 32);
+  ctx.fillText(text, 128, 32);
 
   const texture = new THREE.CanvasTexture(canvas);
   texture.needsUpdate = true;
@@ -107,6 +118,14 @@ export class RemotePlayerRenderer implements Component {
 
       entry.targetPos.set(p.position.x, p.position.y, p.position.z);
       entry.lastSeen = Date.now();
+
+      // Refresh nameplate when activity changes (shows 🎣/💪/🏆)
+      if (p.activity !== entry.activity) {
+        entry.activity = p.activity;
+        const oldMap = entry.label.material.map;
+        entry.label.material.map = makeNameTexture(p.displayName, p.activity);
+        oldMap?.dispose();
+      }
     }
 
     // Remove players no longer in the list
@@ -170,7 +189,7 @@ export class RemotePlayerRenderer implements Component {
 
     // Name label (billboard sprite above head)
     const labelMat = new THREE.SpriteMaterial({
-      map: makeNameTexture(p.displayName),
+      map: makeNameTexture(p.displayName, p.activity),
       transparent: true,
       depthTest: false,
     });
@@ -187,6 +206,7 @@ export class RemotePlayerRenderer implements Component {
       label,
       targetPos: new THREE.Vector3(p.position.x, p.position.y, p.position.z),
       lastSeen: Date.now(),
+      activity: p.activity,
     };
   }
 

@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { Component } from '../core/types';
 import { WaterSystem } from '../world/WaterSystem';
+import { RippleSystem } from '../effects/RippleSystem';
 
 interface FishEntry {
   group: THREE.Group;
@@ -21,6 +22,8 @@ export class AmbientFish implements Component {
   private geometries: THREE.BufferGeometry[] = [];
   private materials: THREE.Material[] = [];
   private time = 0;
+  private ripples: RippleSystem | null = null;
+  private clueTimer = 0;
 
   constructor(scene: THREE.Scene, water: WaterSystem) {
     this.scene = scene;
@@ -121,8 +124,28 @@ export class AmbientFish implements Component {
     this.scene.add(group);
   }
 
+  /** Wire the ripple system so shallow schools leave surface clues */
+  setRipples(ripples: RippleSystem): void {
+    this.ripples = ripples;
+  }
+
   update(dt: number): void {
     this.time += dt;
+
+    // Surface clue: a shallow fish occasionally disturbs the water
+    if (this.ripples) {
+      this.clueTimer -= dt;
+      if (this.clueTimer <= 0) {
+        this.clueTimer = 2.5 + Math.random() * 3;
+        const shallow = this.fish.filter((f) => f.depth < 1.2);
+        if (shallow.length > 0) {
+          const f = shallow[Math.floor(Math.random() * shallow.length)];
+          this.ripples.spawn(f.group.position.x, f.group.position.z, {
+            scale: 1.0, life: 1.4, opacity: 0.3,
+          });
+        }
+      }
+    }
 
     for (const entry of this.fish) {
       const t = this.time * entry.speed + entry.phase;

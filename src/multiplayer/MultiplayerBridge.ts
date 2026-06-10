@@ -62,6 +62,8 @@ export class MultiplayerBridge implements Component {
       position: snapshot.position,
       isDeepWater: snapshot.isDeepWater,
       spotId: snapshot.spotId,
+      activity: snapshot.activity,
+      lastCatch: snapshot.lastCatch,
       timestamp: Date.now(),
     };
 

@@ -31,6 +31,11 @@ export class SoundSystem implements Component {
       this.stopReel();
       this.escapeFail();
     });
+    this.events.on(Events.LINE_SNAPPED, () => {
+      this.stopReel();
+      this.lineSnap();
+    });
+    this.events.on(Events.LURE_TWITCH, () => this.twitchPlop());
     this.events.on(Events.LEVEL_UP, () => this.levelUp());
     this.events.on(Events.EQUIPMENT_PURCHASED, () => this.coinSound());
   }
@@ -182,6 +187,33 @@ export class SoundSystem implements Component {
   private escapeFail(): void {
     this.tone(330, 0.2, 'sine', 0.15);
     this.tone(262, 0.35, 'sine', 0.15, 0.18);
+  }
+
+  private lineSnap(): void {
+    // Sharp crack + low slack thud + descending whine
+    this.noise(0.08, 5000, 'highpass', 0.3);
+    this.tone(70, 0.3, 'sine', 0.25, 0.03);
+    this.tone(440, 0.4, 'sawtooth', 0.06, 0.1);
+    this.tone(220, 0.5, 'sawtooth', 0.05, 0.25);
+  }
+
+  private twitchPlop(): void {
+    this.tone(320, 0.07, 'sine', 0.12);
+    this.noise(0.08, 900, 'lowpass', 0.06);
+  }
+
+  private lastCreakAt = 0;
+
+  /** Call while reeling — plays a creak tick when tension is in the danger zone */
+  updateTensionCreak(tension: number): void {
+    if (tension < 0.75 || !this.ctx) return;
+    const now = this.ctx.currentTime;
+    // Creak faster as tension climbs toward the snap point
+    const interval = 0.4 - (tension - 0.75) * 1.1;
+    if (now - this.lastCreakAt < Math.max(0.1, interval)) return;
+    this.lastCreakAt = now;
+    this.tone(110 + tension * 70, 0.08, 'sawtooth', 0.07);
+    this.noise(0.05, 2400, 'bandpass', 0.05);
   }
 
   private coinSound(): void {

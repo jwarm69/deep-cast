@@ -7,6 +7,24 @@ export interface PresenceVector3 {
   z: number;
 }
 
+/** What the player is doing right now — drives nameplates and the anglers list */
+export type PresenceActivity =
+  | 'walking'
+  | 'sailing'
+  | 'casting'
+  | 'waiting'
+  | 'reeling'
+  | 'caught';
+
+/** A recent catch, shared via presence so others see a live catch feed */
+export interface PresenceCatch {
+  fishName: string;
+  rarity: string;
+  weight: number;
+  isTrophy: boolean;
+  at: number; // epoch ms
+}
+
 export interface LocalPresenceState {
   playerId: string;
   displayName: string;
@@ -15,6 +33,8 @@ export interface LocalPresenceState {
   position: PresenceVector3;
   isDeepWater: boolean;
   spotId: string | null;
+  activity: PresenceActivity;
+  lastCatch: PresenceCatch | null;
   timestamp: number;
 }
 
@@ -28,4 +48,6 @@ export interface PresenceSnapshot {
   position: PresenceVector3;
   isDeepWater: boolean;
   spotId: string | null;
+  activity: PresenceActivity;
+  lastCatch: PresenceCatch | null;
 }

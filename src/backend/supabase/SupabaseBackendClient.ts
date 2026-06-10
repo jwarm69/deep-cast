@@ -17,6 +17,12 @@ interface PresencePayload {
   pz: number;
   isDeepWater: boolean;
   spotId: string | null;
+  activity: string;
+  catchName: string | null;
+  catchRarity: string | null;
+  catchWeight: number | null;
+  catchTrophy: boolean;
+  catchAt: number | null;
   timestamp: number;
 }
 
@@ -85,6 +91,12 @@ export class SupabaseBackendClient implements BackendClient {
         pz: state.position.z,
         isDeepWater: state.isDeepWater,
         spotId: state.spotId,
+        activity: state.activity,
+        catchName: state.lastCatch?.fishName ?? null,
+        catchRarity: state.lastCatch?.rarity ?? null,
+        catchWeight: state.lastCatch?.weight ?? null,
+        catchTrophy: state.lastCatch?.isTrophy ?? false,
+        catchAt: state.lastCatch?.at ?? null,
         timestamp: Date.now(),
       };
       const response = await this.channel.track(payload);
@@ -174,6 +186,16 @@ export class SupabaseBackendClient implements BackendClient {
         position: { x: entry.px, y: entry.py, z: entry.pz },
         isDeepWater: entry.isDeepWater,
         spotId: entry.spotId,
+        activity: (entry.activity ?? 'walking') as LocalPresenceState['activity'],
+        lastCatch: entry.catchName && entry.catchAt
+          ? {
+              fishName: entry.catchName,
+              rarity: entry.catchRarity ?? 'common',
+              weight: entry.catchWeight ?? 0,
+              isTrophy: entry.catchTrophy ?? false,
+              at: entry.catchAt,
+            }
+          : null,
         timestamp: entry.timestamp,
         updatedAt: Date.now(),
       });

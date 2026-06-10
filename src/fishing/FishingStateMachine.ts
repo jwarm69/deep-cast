@@ -7,6 +7,14 @@ import { FishingLine } from '../entities/FishingLine';
 import { FishingRod } from '../entities/FishingRod';
 import { PlayerState } from '../state/PlayerState';
 
+export interface CastAim {
+  direction: { x: number; z: number };
+  minLandingX: number;
+  maxLandingX: number;
+  minLandingZ: number;
+  maxLandingZ: number;
+}
+
 export class FishingStateMachine implements Component {
   private events: EventSystem;
   private input: InputManager;
@@ -15,6 +23,7 @@ export class FishingStateMachine implements Component {
   private line: FishingLine;
   private rod: FishingRod;
   private player: PlayerState | null = null;
+  private castAimProvider: (() => CastAim) | null = null;
 
   public state = FishingState.IDLE;
 
@@ -70,6 +79,10 @@ export class FishingStateMachine implements Component {
 
   setPlayerState(player: PlayerState): void {
     this.player = player;
+  }
+
+  setCastAimProvider(provider: () => CastAim): void {
+    this.castAimProvider = provider;
   }
 
   /** Swap the shore fish pool (for biome transitions) */
@@ -173,9 +186,24 @@ export class FishingStateMachine implements Component {
     this.flightStart.x = tip.x;
     this.flightStart.z = tip.z;
 
-    const spread = (Math.random() - 0.5) * 3;
-    this.flightTarget.x = tip.x + spread;
-    this.flightTarget.z = tip.z + dist;
+    const aim = this.castAimProvider?.() ?? {
+      direction: { x: 0, z: 1 },
+      minLandingX: -45,
+      maxLandingX: 45,
+      minLandingZ: 4.5,
+      maxLandingZ: 58,
+    };
+    const dirLen = Math.hypot(aim.direction.x, aim.direction.z) || 1;
+    const dirX = aim.direction.x / dirLen;
+    const dirZ = aim.direction.z / dirLen;
+    const rightX = dirZ;
+    const rightZ = -dirX;
+    const spread = (Math.random() - 0.5) * (1.2 + dist * 0.08);
+
+    this.flightTarget.x = tip.x + dirX * dist + rightX * spread;
+    this.flightTarget.z = tip.z + dirZ * dist + rightZ * spread;
+    this.flightTarget.x = Math.max(aim.minLandingX, Math.min(aim.maxLandingX, this.flightTarget.x));
+    this.flightTarget.z = Math.max(aim.minLandingZ, Math.min(aim.maxLandingZ, this.flightTarget.z));
 
     this.flightProgress = 0;
     this.setState(FishingState.FLIGHT);

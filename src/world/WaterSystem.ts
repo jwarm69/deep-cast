@@ -12,19 +12,21 @@ const waterVertexShader = `
     vUv = uv;
     vec3 pos = position;
 
-    // Layered sine waves for water displacement
-    float wave1 = sin(pos.x * 0.8 + uTime * 0.6) * 0.15;
+    // Layered wind waves plus a slow lake swell.
+    float swell = sin(pos.z * 0.18 + uTime * 0.55) * 0.18;
+    float wave1 = sin(pos.x * 0.8 + uTime * 0.6) * 0.13;
     float wave2 = sin(pos.z * 1.2 + uTime * 0.8) * 0.1;
     float wave3 = sin((pos.x + pos.z) * 0.5 + uTime * 0.4) * 0.08;
     float wave4 = sin(pos.x * 2.0 + pos.z * 1.5 + uTime * 1.2) * 0.04;
 
-    pos.y += wave1 + wave2 + wave3 + wave4;
+    pos.y += swell + wave1 + wave2 + wave3 + wave4;
 
     // Compute displaced normal for lighting
-    float dx = 0.8 * cos(pos.x * 0.8 + uTime * 0.6) * 0.15
+    float dx = 0.8 * cos(pos.x * 0.8 + uTime * 0.6) * 0.13
              + 0.5 * cos((pos.x + pos.z) * 0.5 + uTime * 0.4) * 0.08
              + 2.0 * cos(pos.x * 2.0 + pos.z * 1.5 + uTime * 1.2) * 0.04;
-    float dz = 1.2 * cos(pos.z * 1.2 + uTime * 0.8) * 0.1
+    float dz = 0.18 * cos(pos.z * 0.18 + uTime * 0.55) * 0.18
+             + 1.2 * cos(pos.z * 1.2 + uTime * 0.8) * 0.1
              + 0.5 * cos((pos.x + pos.z) * 0.5 + uTime * 0.4) * 0.08
              + 1.5 * cos(pos.x * 2.0 + pos.z * 1.5 + uTime * 1.2) * 0.04;
 
@@ -52,24 +54,31 @@ const waterFragmentShader = `
     // Fresnel — more reflection at grazing angles
     float fresnel = pow(1.0 - max(dot(viewDir, normal), 0.0), 3.0);
 
-    // Depth-based color blend
-    float depthFactor = smoothstep(-8.0, 2.0, vWorldPos.y);
-    vec3 waterColor = mix(uDeepColor, uShallowColor, depthFactor);
+    // Fake depth by distance from shore: shallow near the dock, darker offshore.
+    float offshore = smoothstep(5.0, 48.0, vWorldPos.z);
+    vec3 waterColor = mix(uShallowColor, uDeepColor, offshore);
 
     // Sun specular
     vec3 halfDir = normalize(viewDir + uSunDirection);
     float spec = pow(max(dot(normal, halfDir), 0.0), 256.0);
 
-    // Caustic-like shimmer
+    // Small crossed ripples, caustic shimmer, and shoreline foam.
+    float ripple = sin(vWorldPos.x * 1.7 + uTime * 1.4) * 0.5
+                 + sin((vWorldPos.x + vWorldPos.z) * 0.9 - uTime * 1.1) * 0.5;
     float caustic = sin(vWorldPos.x * 3.0 + uTime) * sin(vWorldPos.z * 3.0 + uTime * 0.7) * 0.5 + 0.5;
-    caustic = pow(caustic, 3.0) * 0.15;
+    caustic = pow(caustic, 3.0) * mix(0.18, 0.05, offshore);
+    float shoreMask = 1.0 - smoothstep(4.0, 12.0, vWorldPos.z);
+    float foamBand = smoothstep(0.45, 0.95, abs(sin(vWorldPos.x * 1.35 + uTime * 1.8)));
+    float crestFoam = smoothstep(0.035, 0.11, 1.0 - normal.y);
+    float foam = max(shoreMask * foamBand * 0.5, crestFoam * 0.25);
 
     vec3 skyColor = vec3(0.53, 0.81, 0.92);
     vec3 color = mix(waterColor + caustic, skyColor, fresnel * 0.4);
+    color += ripple * 0.025;
     color += spec * vec3(1.0, 0.95, 0.8) * 0.8;
+    color = mix(color, vec3(0.88, 0.97, 1.0), foam);
 
-    // Slight transparency near edges
-    float alpha = mix(0.85, 0.95, fresnel);
+    float alpha = mix(0.74, 0.93, offshore) + fresnel * 0.04;
 
     gl_FragColor = vec4(color, alpha);
   }
@@ -100,6 +109,7 @@ export class WaterSystem implements Component {
         uSunDirection: { value: new THREE.Vector3(0.5, 0.8, 0.3).normalize() },
       },
       transparent: true,
+      depthWrite: false,
       side: THREE.DoubleSide,
     });
 
@@ -114,7 +124,8 @@ export class WaterSystem implements Component {
     const t = this.time;
     return (
       -0.2 +
-      Math.sin(x * 0.8 + t * 0.6) * 0.15 +
+      Math.sin(z * 0.18 + t * 0.55) * 0.18 +
+      Math.sin(x * 0.8 + t * 0.6) * 0.13 +
       Math.sin(z * 1.2 + t * 0.8) * 0.1 +
       Math.sin((x + z) * 0.5 + t * 0.4) * 0.08 +
       Math.sin(x * 2.0 + z * 1.5 + t * 1.2) * 0.04

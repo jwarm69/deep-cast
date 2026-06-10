@@ -16,6 +16,7 @@ export class CatchFish implements Component {
   private animTime = 0;
   private animDuration = 2.0;
   private startPos = new THREE.Vector3();
+  private catchOrigin = new THREE.Vector3(0, 0.5, 8);
   private peakHeight = 4.0;
 
   constructor(scene: THREE.Scene, events: EventSystem) {
@@ -54,17 +55,41 @@ export class CatchFish implements Component {
       metalness: 0.05,
       side: THREE.DoubleSide,
     });
+    const detailMat = new THREE.MeshStandardMaterial({
+      color: color.clone().multiplyScalar(0.42),
+      roughness: 0.5,
+      metalness: 0.02,
+    });
 
     // Scale fish by weight — min 0.4, max 2.5
     const scale = 0.4 + Math.min(weight / 20, 1) * 2.1;
 
     // Body — scaled sphere (wider than tall/deep)
     const body = new THREE.Mesh(
-      new THREE.SphereGeometry(0.5, 12, 8),
+      new THREE.SphereGeometry(0.5, 24, 14),
       bodyMat,
     );
     body.scale.set(1.6 * scale, 0.7 * scale, 0.5 * scale);
     this.group.add(body);
+
+    // Subtle vertical bands and lateral lines give the procedural fish more species-like detail.
+    for (const x of [-0.38, -0.05, 0.28]) {
+      const band = new THREE.Mesh(
+        new THREE.BoxGeometry(0.035 * scale, 0.68 * scale, 0.52 * scale),
+        detailMat,
+      );
+      band.position.x = x * scale;
+      this.group.add(band);
+    }
+
+    for (const z of [-0.27, 0.27]) {
+      const lateral = new THREE.Mesh(
+        new THREE.BoxGeometry(1.35 * scale, 0.018 * scale, 0.018 * scale),
+        detailMat,
+      );
+      lateral.position.set(0.05 * scale, 0.04 * scale, z * scale);
+      this.group.add(lateral);
+    }
 
     // Eye (right side)
     const eyeMat = new THREE.MeshStandardMaterial({ color: 0x111111 });
@@ -80,8 +105,9 @@ export class CatchFish implements Component {
     // Tail — triangle shape
     const tailShape = new THREE.Shape();
     tailShape.moveTo(0, 0);
-    tailShape.lineTo(-0.5 * scale, 0.4 * scale);
-    tailShape.lineTo(-0.5 * scale, -0.4 * scale);
+    tailShape.lineTo(-0.55 * scale, 0.42 * scale);
+    tailShape.lineTo(-0.34 * scale, 0.08 * scale);
+    tailShape.lineTo(-0.55 * scale, -0.42 * scale);
     tailShape.lineTo(0, 0);
     const tailGeo = new THREE.ShapeGeometry(tailShape);
     const tail = new THREE.Mesh(tailGeo, finMat);
@@ -147,13 +173,7 @@ export class CatchFish implements Component {
     this.animTime = 0;
     this.group.visible = true;
 
-    // Start at bobber position (we'll read from last known catch location)
-    // Use a position slightly in front of the dock
-    this.startPos.set(
-      (Math.random() - 0.5) * 4,
-      0.5,
-      8 + Math.random() * 4,
-    );
+    this.startPos.copy(this.catchOrigin);
     this.group.position.copy(this.startPos);
 
     // Scale peak height by weight
@@ -162,8 +182,12 @@ export class CatchFish implements Component {
 
   /** Set the bobber position so fish jumps from right spot */
   setBobberPos(x: number, z: number): void {
-    this.startPos.x = x;
-    this.startPos.z = z;
+    this.catchOrigin.set(x, 0.5, z);
+    this.startPos.copy(this.catchOrigin);
+    if (this.isAnimating) {
+      this.group.position.x = x;
+      this.group.position.z = z;
+    }
   }
 
   update(dt: number): void {

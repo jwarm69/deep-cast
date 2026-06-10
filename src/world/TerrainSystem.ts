@@ -27,6 +27,7 @@ export class TerrainSystem implements Component {
     this.createRocks();
     this.createHills();
     this.createMountains();
+    this.createDistantShoreline();
     this.createLakeBottom();
   }
 
@@ -748,6 +749,60 @@ export class TerrainSystem implements Component {
       mtn.castShadow = true;
       mtn.receiveShadow = true;
       this.add(mtn);
+    }
+  }
+
+  private createDistantShoreline(): void {
+    const shoreMat = this.trackMat(new THREE.MeshStandardMaterial({
+      color: this.config.hillColor,
+      roughness: 0.95,
+    }));
+    const treeMat = this.trackMat(new THREE.MeshStandardMaterial({
+      color: new THREE.Color(this.config.leafColor).multiplyScalar(0.55),
+      roughness: 0.9,
+    }));
+    const ridgeMat = this.trackMat(new THREE.MeshStandardMaterial({
+      color: new THREE.Color(this.config.mountainColor).multiplyScalar(0.75),
+      roughness: 0.95,
+    }));
+
+    const shoreGeo = this.trackGeo(new THREE.BoxGeometry(190, 1.2, 8));
+    const shore = new THREE.Mesh(shoreGeo, shoreMat);
+    shore.position.set(0, 0.05, 112);
+    shore.receiveShadow = true;
+    this.add(shore);
+
+    for (let i = 0; i < 9; i++) {
+      const radius = 5 + Math.random() * 8;
+      const hillGeo = this.trackGeo(
+        new THREE.SphereGeometry(radius, 16, 10, 0, Math.PI * 2, 0, Math.PI / 2),
+      );
+      const hill = new THREE.Mesh(hillGeo, shoreMat);
+      hill.position.set(-80 + i * 20 + (Math.random() - 0.5) * 8, 0.5, 113 + Math.random() * 8);
+      hill.scale.y = 0.25 + Math.random() * 0.2;
+      hill.receiveShadow = true;
+      this.add(hill);
+    }
+
+    for (let i = 0; i < 34; i++) {
+      const height = 1.6 + Math.random() * 2.6;
+      const treeGeo = this.trackGeo(new THREE.ConeGeometry(0.55 + Math.random() * 0.35, height, 7));
+      const tree = new THREE.Mesh(treeGeo, treeMat);
+      tree.position.set(-88 + Math.random() * 176, 0.65 + height / 2, 106 + Math.random() * 10);
+      tree.scale.x = 0.7 + Math.random() * 0.6;
+      tree.scale.z = 0.7 + Math.random() * 0.6;
+      tree.castShadow = true;
+      this.add(tree);
+    }
+
+    for (let i = 0; i < 5; i++) {
+      const height = 10 + Math.random() * 12;
+      const baseRadius = 8 + Math.random() * 8;
+      const ridgeGeo = this.trackGeo(new THREE.ConeGeometry(baseRadius, height, 8));
+      const ridge = new THREE.Mesh(ridgeGeo, ridgeMat);
+      ridge.position.set(-70 + i * 35 + (Math.random() - 0.5) * 10, 0.4 + height / 2, 128 + Math.random() * 10);
+      ridge.receiveShadow = true;
+      this.add(ridge);
     }
   }
 

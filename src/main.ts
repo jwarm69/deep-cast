@@ -12,6 +12,7 @@ import { FishingLine } from './entities/FishingLine';
 import { Bobber } from './entities/Bobber';
 import { Boat } from './entities/Boat';
 import { CatchFish } from './entities/CatchFish';
+import { AmbientFish } from './entities/AmbientFish';
 import { FishingStateMachine } from './fishing/FishingStateMachine';
 import { PlayerState } from './state/PlayerState';
 import { SoundSystem } from './audio/SoundSystem';
@@ -51,6 +52,10 @@ async function main() {
   water.init();
   engine.addComponent(water);
 
+  const ambientFish = new AmbientFish(scene, water);
+  ambientFish.init();
+  engine.addComponent(ambientFish);
+
   // Deep water marker (buoy line + overlay)
   let deepMarker = new DeepWaterMarker(scene, water);
   deepMarker.init();
@@ -88,8 +93,10 @@ async function main() {
   rod.update = (dt: number) => {
     if (playerMode === PlayerMode.BOAT) {
       rod.setBasePosition(boat.rodAttachPoint);
+      rod.group.rotation.y = boat.group.rotation.y;
     } else {
       rod.setBasePosition(character.rodAttachPoint);
+      rod.group.rotation.y = character.group.rotation.y;
     }
     originalRodUpdate(dt);
   };
@@ -136,6 +143,28 @@ async function main() {
     rod,
   );
   fsm.setPlayerState(player);
+  fsm.setCastAimProvider(() => {
+    const activeGroup = playerMode === PlayerMode.BOAT ? boat.group : character.group;
+    const facing = new THREE.Vector3(
+      Math.sin(activeGroup.rotation.y),
+      0,
+      Math.cos(activeGroup.rotation.y),
+    );
+
+    if (playerMode === PlayerMode.SHORE) {
+      facing.x *= 0.6;
+      facing.z = Math.max(0.65, facing.z);
+      facing.normalize();
+    }
+
+    return {
+      direction: { x: facing.x, z: facing.z },
+      minLandingX: -90,
+      maxLandingX: 90,
+      minLandingZ: playerMode === PlayerMode.SHORE ? 5.5 : 3.5,
+      maxLandingZ: 112,
+    };
+  });
   engine.addComponent(fsm);
 
   // Multiplayer bridge (local by default; switch to Supabase with env vars)

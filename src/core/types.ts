@@ -79,6 +79,9 @@ export const Events = {
   REEL_PROGRESS: 'fishing:reel_progress',
   FISH_CAUGHT: 'fishing:fish_caught',
   FISH_ESCAPED: 'fishing:fish_escaped',
+  LINE_SNAPPED: 'fishing:line_snapped',
+  LURE_TWITCH: 'fishing:lure_twitch',
+  FISH_APPROACH: 'fishing:fish_approach',
   STATE_CHANGE: 'fishing:state_change',
 
   // Input
@@ -106,6 +109,8 @@ export const Events = {
   DISEMBARK_BOAT: 'player:disembark_boat',
   ENTER_DEEP_WATER: 'world:enter_deep_water',
   LEAVE_DEEP_WATER: 'world:leave_deep_water',
+  FOG_EVENT_START: 'world:fog_event_start',
+  FOG_EVENT_END: 'world:fog_event_end',
 
   // Overlays
   SHOP_TOGGLE: 'ui:shop_toggle',

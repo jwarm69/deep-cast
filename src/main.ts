@@ -13,20 +13,26 @@ import { Bobber } from './entities/Bobber';
 import { Boat } from './entities/Boat';
 import { CatchFish } from './entities/CatchFish';
 import { AmbientFish } from './entities/AmbientFish';
+import { FishShadow } from './entities/FishShadow';
 import { FishingStateMachine } from './fishing/FishingStateMachine';
 import { PlayerState } from './state/PlayerState';
 import { SoundSystem } from './audio/SoundSystem';
 import { ParticleSystem, FX } from './effects/ParticleSystem';
+import { RippleSystem } from './effects/RippleSystem';
+import { BiteIndicator } from './effects/BiteIndicator';
 import { GameUI } from './ui/GameUI';
 import { ShopUI } from './ui/ShopUI';
 import { JournalUI } from './ui/JournalUI';
 import { MobileControls } from './ui/MobileControls';
+import { MultiplayerUI } from './ui/MultiplayerUI';
 import { BIOME_CONFIGS, TerrainType } from './data/biome-config';
 import { FISH_BY_TERRAIN, DEEP_FISH_BY_TERRAIN } from './data/fish-species';
+import { FogEventSystem } from './world/FogEventSystem';
 import { createBackendClient } from './backend/createBackendClient';
 import { MultiplayerBridge } from './multiplayer/MultiplayerBridge';
 import { RemotePlayerRenderer } from './multiplayer/RemotePlayerRenderer';
 import { findFishingSpot } from './multiplayer/fishing-spots';
+import { PresenceActivity, PresenceCatch } from './multiplayer/types';
 
 async function main() {
   const container = document.getElementById('game-container')!;
@@ -52,9 +58,24 @@ async function main() {
   water.init();
   engine.addComponent(water);
 
+  // Water surface ripples (bobber, bites, fish movement)
+  const ripples = new RippleSystem(scene, water);
+  ripples.init();
+  engine.addComponent(ripples);
+
   const ambientFish = new AmbientFish(scene, water);
   ambientFish.init();
+  ambientFish.setRipples(ripples);
   engine.addComponent(ambientFish);
+
+  // Approaching fish silhouette + bite "!" indicator
+  const fishShadow = new FishShadow(scene, water, ripples);
+  fishShadow.init();
+  engine.addComponent(fishShadow);
+
+  const biteIndicator = new BiteIndicator(scene);
+  biteIndicator.init();
+  engine.addComponent(biteIndicator);
 
   // Deep water marker (buoy line + overlay)
   let deepMarker = new DeepWaterMarker(scene, water);
@@ -167,6 +188,42 @@ async function main() {
   });
   engine.addComponent(fsm);
 
+  // Fog events (Mistfall Reservoir mechanic)
+  const fogEvents = new FogEventSystem(engine.events, engine.renderer, fsm);
+  fogEvents.init();
+  engine.addComponent(fogEvents);
+
+  // --- Multiplayer presence: activity + last catch shared with other anglers ---
+  let sharedLastCatch: PresenceCatch | null = null;
+
+  engine.events.on(Events.FISH_CAUGHT, (e) => {
+    const data = e.data;
+    sharedLastCatch = {
+      fishName: data.isTrophy ? `Trophy ${data.species.name}` : data.species.name,
+      rarity: data.species.rarity,
+      weight: data.weight,
+      isTrophy: data.isTrophy ?? false,
+      at: Date.now(),
+    };
+  });
+
+  function currentActivity(): PresenceActivity {
+    switch (fsm.state) {
+      case FishingState.CASTING:
+      case FishingState.FLIGHT:
+        return 'casting';
+      case FishingState.WAITING:
+      case FishingState.BITING:
+        return 'waiting';
+      case FishingState.REELING:
+        return 'reeling';
+      case FishingState.CAUGHT:
+        return 'caught';
+      default:
+        return playerMode === PlayerMode.BOAT ? 'sailing' : 'walking';
+    }
+  }
+
   // Multiplayer bridge (local by default; switch to Supabase with env vars)
   const backend = createBackendClient();
   const multiplayer = new MultiplayerBridge(engine.events, backend, () => {
@@ -189,6 +246,8 @@ async function main() {
       },
       isDeepWater: wasInDeepWater,
       spotId: spot?.id ?? null,
+      activity: currentActivity(),
+      lastCatch: sharedLastCatch,
     };
   });
   await multiplayer.init();
@@ -227,6 +286,13 @@ async function main() {
     // Fish pools
     fsm.setFishPool(FISH_BY_TERRAIN[terrain]);
     fsm.setDeepFishPool(DEEP_FISH_BY_TERRAIN[terrain]);
+
+    // Fog events (only active where the biome calls for them)
+    fogEvents.setBiome(config);
+
+    // Clear any in-flight fish presentation
+    fishShadow.hide();
+    biteIndicator.hide();
 
     // If currently on boat, keep boat mode; otherwise reset to shore
     if (playerMode === PlayerMode.BOAT) {
@@ -279,20 +345,55 @@ async function main() {
   engine.events.on(Events.BOBBER_LAND, () => {
     lastBobberPos.set(bobber.position.x, 0.3, bobber.position.z);
     FX.splash(lastBobberPos, particles);
+    ripples.burst(bobber.position.x, bobber.position.z, 3, { scale: 1.6, opacity: 0.55 });
+  });
+
+  // The rolled fish swims in as a silhouette while you wait
+  engine.events.on(Events.FISH_APPROACH, (e) => {
+    fishShadow.beginApproach(
+      e.data.x, e.data.z, e.data.arriveIn,
+      e.data.weight, e.data.maxWeight, e.data.rarity, e.data.isTrophy,
+    );
+  });
+
+  engine.events.on(Events.LURE_TWITCH, (e) => {
+    ripples.spawn(e.data.x, e.data.z, { scale: 0.9, life: 0.8, opacity: 0.45 });
   });
 
   engine.events.on(Events.FISH_BITE, () => {
     const bitePos = new THREE.Vector3(bobber.position.x, 0.5, bobber.position.z);
     FX.biteBubbles(bitePos, particles);
+    ripples.burst(bobber.position.x, bobber.position.z, 2, { scale: 1.2, life: 0.8, opacity: 0.6 });
+    biteIndicator.show(bobber.position.x, bobber.mesh.position.y, bobber.position.z);
     engine.camera.shake(0.15, 0.3); // Light shake on bite
+  });
+
+  engine.events.on(Events.REEL_START, () => {
+    biteIndicator.hide();
+    fishShadow.startFight(() => ({ x: bobber.position.x, z: bobber.position.z }));
   });
 
   engine.events.on(Events.FISH_CAUGHT, (e) => {
     const pos = new THREE.Vector3(bobber.position.x, 0.5, bobber.position.z);
     const speciesColor = new THREE.Color(e.data.species.color);
     FX.catchSparkle(pos, particles, speciesColor);
+    ripples.burst(pos.x, pos.z, 3, { scale: 2.0, opacity: 0.6 });
     engine.camera.shake(0.4, 0.5); // Strong shake on catch
     catchFish.setBobberPos(pos.x, pos.z);
+    fishShadow.hide();
+    biteIndicator.hide();
+  });
+
+  engine.events.on(Events.FISH_ESCAPED, () => {
+    fishShadow.flee();
+    biteIndicator.hide();
+  });
+
+  engine.events.on(Events.LINE_SNAPPED, () => {
+    fishShadow.flee();
+    biteIndicator.hide();
+    ripples.burst(bobber.position.x, bobber.position.z, 2, { scale: 1.4, life: 0.7, opacity: 0.5 });
+    engine.camera.shake(0.5, 0.45); // Hard jolt — the line just broke
   });
 
   engine.events.on(Events.LEVEL_UP, () => {
@@ -331,11 +432,22 @@ async function main() {
 
   // Update reel sound pitch each frame while reeling
   // Also handle board/disembark and deep water detection
+  let waitRippleTimer = 0;
   const originalFsmUpdate = fsm.update.bind(fsm);
   fsm.update = (dt: number) => {
     originalFsmUpdate(dt);
-    if (fsm.currentReelProgress > 0 && fsm.state === 'reeling') {
+    if (fsm.state === 'reeling') {
       sound.updateReelPitch(fsm.currentReelProgress);
+      sound.updateTensionCreak(fsm.currentTension);
+    }
+
+    // Gentle bobber ripples while waiting for a bite
+    if (fsm.state === FishingState.WAITING) {
+      waitRippleTimer -= dt;
+      if (waitRippleTimer <= 0) {
+        waitRippleTimer = 2.2 + Math.random() * 1.5;
+        ripples.spawn(bobber.position.x, bobber.position.z, { scale: 0.7, life: 1.6, opacity: 0.3 });
+      }
     }
 
     // --- Board / Disembark controller ---
@@ -366,6 +478,10 @@ async function main() {
   const ui = new GameUI(engine.events, fsm, player);
   ui.init();
   engine.addComponent(ui);
+
+  const multiplayerUI = new MultiplayerUI(engine.events);
+  multiplayerUI.init();
+  engine.addComponent(multiplayerUI);
 
   const shop = new ShopUI(engine.events, engine.input, player, fsm);
   shop.init();

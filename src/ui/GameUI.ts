@@ -6,6 +6,22 @@ import { BIOME_CONFIGS } from '../data/biome-config';
 
 const isMobile = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 
+const BEHAVIOR_HINTS: Record<string, string> = {
+  runner: 'A runner — brace for long pulls!',
+  diver: 'A diver — it dives hard, watch the tension!',
+  darting: 'A darter — quick erratic bursts!',
+  heavy: 'A heavy one — slow and stubborn...',
+  trickster: "A trickster — don't trust the calm!",
+};
+
+const RARITY_FLASH: Record<string, string> = {
+  common: 'rgba(163, 163, 163, 0.7)',
+  uncommon: '#4ade80',
+  rare: '#38bdf8',
+  epic: '#a78bfa',
+  legendary: '#fbbf24',
+};
+
 /**
  * GameUI — manages all DOM overlay UI elements.
  * Reads state from the fishing state machine each frame.
@@ -22,7 +38,12 @@ export class GameUI implements Component {
   private biteUI: HTMLElement;
   private reelUI: HTMLElement;
   private reelBar: HTMLElement;
+  private tensionBar: HTMLElement;
+  private staminaBar: HTMLElement;
+  private reelBehavior: HTMLElement;
   private reelFishName: HTMLElement;
+  private screenFlash: HTMLElement;
+  private eventBanner: HTMLElement;
   private catchPopup: HTMLElement;
   private catchFishName: HTMLElement;
   private catchRarity: HTMLElement;
@@ -55,7 +76,12 @@ export class GameUI implements Component {
     this.biteUI = document.getElementById('bite-ui')!;
     this.reelUI = document.getElementById('reel-ui')!;
     this.reelBar = document.getElementById('reel-bar')!;
+    this.tensionBar = document.getElementById('tension-bar')!;
+    this.staminaBar = document.getElementById('stamina-bar')!;
+    this.reelBehavior = document.getElementById('reel-behavior')!;
     this.reelFishName = document.getElementById('reel-fish-name')!;
+    this.screenFlash = document.getElementById('screen-flash')!;
+    this.eventBanner = document.getElementById('event-banner')!;
     this.catchPopup = document.getElementById('catch-popup')!;
     this.catchFishName = document.getElementById('catch-fish-name')!;
     this.catchRarity = document.getElementById('catch-rarity')!;
@@ -84,6 +110,24 @@ export class GameUI implements Component {
     this.events.on(Events.FISH_CAUGHT, (e) => {
       const data = e.data as CatchData;
       this.showCatch(data);
+      this.flash(this.rarityFlashColor(data));
+    });
+    this.events.on(Events.LINE_SNAPPED, () => {
+      this.escapedUI.textContent = '💥 LINE SNAPPED!';
+      this.flash('#ef4444');
+    });
+    this.events.on(Events.FISH_ESCAPED, () => {
+      this.escapedUI.textContent = 'The fish escaped!';
+    });
+    this.events.on(Events.REEL_START, (e) => {
+      this.reelBehavior.textContent = BEHAVIOR_HINTS[e.data.behavior as string] ?? '';
+    });
+    this.events.on(Events.FOG_EVENT_START, () => {
+      this.eventBanner.textContent = '🌫 Heavy fog rolls in... the fish stir below';
+      this.eventBanner.classList.add('visible');
+    });
+    this.events.on(Events.FOG_EVENT_END, () => {
+      this.eventBanner.classList.remove('visible');
     });
     this.events.on(Events.LEVEL_UP, (e) => {
       this.showLevelUp(e.data.newLevel);
@@ -145,6 +189,23 @@ export class GameUI implements Component {
     this.syncHUD();
   }
 
+  private rarityFlashColor(data: CatchData): string {
+    if (data.isTrophy) return '#fbbf24';
+    return RARITY_FLASH[data.species.rarity] ?? '#ffffff';
+  }
+
+  /** Brief rarity-colored vignette flash */
+  private flash(color: string): void {
+    this.screenFlash.style.setProperty('--flash-color', color);
+    this.screenFlash.classList.add('flash');
+    // Force the transition to restart, then fade out
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        this.screenFlash.classList.remove('flash');
+      });
+    });
+  }
+
   private showLevelUp(newLevel: number): void {
     this.levelUpBanner.textContent = `LEVEL UP! You are now level ${newLevel}`;
     this.levelUpBanner.classList.add('visible');
@@ -167,6 +228,7 @@ export class GameUI implements Component {
       this.castUI.classList.remove('visible');
       this.biteUI.classList.remove('visible');
       this.reelUI.classList.remove('visible');
+      this.reelUI.classList.remove('danger');
       this.escapedUI.classList.remove('visible');
 
       if (!this.catchDisplayed) {
@@ -218,6 +280,9 @@ export class GameUI implements Component {
         this.biteUI.classList.remove('visible');
         this.reelUI.classList.add('visible');
         this.reelBar.style.width = `${this.fsm.currentReelProgress * 100}%`;
+        this.tensionBar.style.width = `${this.fsm.currentTension * 100}%`;
+        this.staminaBar.style.width = `${this.fsm.currentStamina * 100}%`;
+        this.reelUI.classList.toggle('danger', this.fsm.inDanger);
         this.reelFishName.textContent = this.fsm.currentReelFishName;
         this.prompt.style.display = 'none';
         break;

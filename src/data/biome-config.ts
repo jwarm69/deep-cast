@@ -1,4 +1,4 @@
-export type TerrainType = 'lake' | 'tropical' | 'arctic' | 'swamp' | 'mountain' | 'volcano';
+export type TerrainType = 'lake' | 'tropical' | 'arctic' | 'swamp' | 'mountain' | 'volcano' | 'reservoir';
 
 export interface HutDef {
   x: number; z: number;
@@ -614,6 +614,96 @@ export const BIOME_CONFIGS: Record<TerrainType, BiomeConfig> = {
         netRacks: [],
         ropeCoils: [[-5, -7]],
         lanterns: [[-8, -9], [-5, -11], [10, -9]],
+      },
+    },
+  },
+
+  reservoir: {
+    name: 'Mistfall Reservoir',
+    terrain: 'reservoir',
+    travelCost: 0,
+    levelRequired: 3,
+
+    // Thick, desaturated fog — visibility is the whole mood here
+    skyColor: 0x8da3ad,
+    fogColor: 0x9fb2ba,
+    fogDensity: 0.018,
+    skyTopColor: 0x5d7682,
+    skyHorizonColor: 0xb4c4ca,
+    sunDiscColor: 0xdde8ec,
+    sunDiscSize: 2.0,
+    cloudColor: 0xc3ced3,
+    cloudOpacity: 0.85,
+    cloudCount: 22,
+    cloudAltitude: 38,
+    cloudDriftSpeed: 0.8,
+    mountainColor: 0x46555c,
+    mountainCount: 10,
+
+    ambientColor: 0xa8b8bf,
+    ambientIntensity: 0.55,
+    hemiSkyColor: 0x9fb2ba,
+    hemiGroundColor: 0x33403a,
+    hemiIntensity: 0.35,
+    sunColor: 0xd8e2e6,
+    sunIntensity: 0.75,
+    sunPosition: [12, 30, 28],
+
+    waterDeepColor: 0x16282e,
+    waterShallowColor: 0x2e4d4e,
+    waterSunDirection: [0.25, 0.85, 0.4],
+
+    groundColor: 0x4a5a45,
+    shoreColor: 0x6e7a6a,
+    dockColor: 0x5a4f3f,
+    rockColor: 0x59636a,
+    trunkColor: 0x3e3329,
+    leafColor: 0x2c4434,
+    hillColor: 0x44523f,
+    lakeBottomColor: 0x1d2c28,
+
+    treeStyle: 'pine',
+    dockStyle: 'wooden_pier',
+
+    treeCount: 20,
+    shoreRockCount: 10,
+    waterRockCount: 9,
+    hillCount: 8,
+
+    layout: {
+      // Sparse, half-abandoned settlement — one keeper's hut, a couple of ruins
+      huts: [
+        { x: 7, z: -6, w: 3.0, h: 2.6, d: 3.4, rotY: 0.1, isMain: true },
+        { x: -11, z: -10, w: 2.0, h: 1.7, d: 2.2, rotY: -0.4, isMain: false },
+        { x: 14, z: -13, w: 1.8, h: 1.5, d: 2.0, rotY: 0.5, isMain: false },
+      ],
+      treePositions: [
+        [-9, -9], [-13, -16], [8, -11], [12, -19], [-16, -13],
+        [15, -15], [-7, -21], [5, -23], [-19, -19], [19, -17],
+        [-11, -26], [10, -29], [-21, -23], [16, -26], [1, -31],
+        [-4, -12], [3, -16], [-15, -8], [18, -10], [-2, -25],
+      ],
+      shoreRockPositions: [
+        [-5, -3], [6, -2], [-8, -5], [9, -4], [-3, -1.5],
+        [4, -2.5], [-11, -6], [12, -3], [-14, -5], [16, -4],
+      ],
+      // Drowned snags and old pilings poking out of the water
+      waterRockPositions: [
+        [-7, 0.5], [8, 0.3], [-12, 0.8], [14, 0.2], [-3, 0.6],
+        [10, 0.7], [4, 0.9], [-16, 0.4], [18, 0.6],
+      ],
+      beachedBoat: { x: -13, z: -2, rotY: 0.8, rotZ: 0.35 },
+      marketStall: { x: 11, z: -5, rotY: -0.25 },
+      boardwalks: [
+        { x: 3, z: -4, w: 4.0, d: 1.4, rotY: 0.05 },
+        { x: -5, z: -6, w: 2.6, d: 1.2, rotY: -0.3 },
+      ],
+      props: {
+        barrels: [[5, -3], [-7, -4], [11, -7]],
+        crates: [[3, -5, 2], [-6, -7, 1]],
+        netRacks: [[-5, -2], [9, -3]],
+        ropeCoils: [[1.5, -6], [7, -5]],
+        lanterns: [[0, -8], [5, -11], [-5, -11], [9, -15], [-9, -15], [2, -18]],
       },
     },
   },

@@ -6,6 +6,7 @@ import { Bobber } from '../entities/Bobber';
 import { FishingLine } from '../entities/FishingLine';
 import { FishingRod } from '../entities/FishingRod';
 import { PlayerState } from '../state/PlayerState';
+import { FightModel } from './FightModel';
 
 export interface CastAim {
   direction: { x: number; z: number };
@@ -13,6 +14,12 @@ export interface CastAim {
   maxLandingX: number;
   minLandingZ: number;
   maxLandingZ: number;
+}
+
+/** Environment modifiers (e.g. heavy fog events) */
+export interface EnvironmentModifiers {
+  biteSpeedMultiplier: number;
+  rareBonus: number;
 }
 
 export class FishingStateMachine implements Component {
@@ -32,6 +39,9 @@ export class FishingStateMachine implements Component {
   private deepWaterFishPool: FishSpecies[] = [];
   private inDeepWater = false;
 
+  // Environment modifiers (fog events etc.)
+  private env: EnvironmentModifiers = { biteSpeedMultiplier: 1, rareBonus: 0 };
+
   // Casting
   private castPower = 0;
 
@@ -44,17 +54,22 @@ export class FishingStateMachine implements Component {
   private waitTimer = 0;
   private waitDuration = 0;
 
+  // Lure twitch
+  private spaceWasDown = false;
+  private spaceHeldTime = 0;
+  private twitchCooldown = 0;
+
   // Biting
   private biteTimer = 0;
   private biteDuration = 3.0;
 
-  // Reeling
-  private reelProgress = 0;
-  private reelDifficulty = 0.5;
+  // Fish is rolled when the bobber lands so the approaching shadow can telegraph it
+  private pendingCatch: CatchData | null = null;
   private reelFishName = '';
 
-  // Catch
-  private pendingCatch: CatchData | null = null;
+  // Fight
+  private fight: FightModel | null = null;
+  private fightAnchor = { x: 0, z: 0 };
 
   // Escaped
   private escapedTimer = 0;
@@ -101,6 +116,14 @@ export class FishingStateMachine implements Component {
   setDeepWater(deep: boolean): void {
     this.inDeepWater = deep;
     this.applyFishPool();
+  }
+
+  /** Apply environment modifiers from world events (heavy fog, etc.) */
+  setEnvironmentModifiers(env: Partial<EnvironmentModifiers>): void {
+    this.env = {
+      biteSpeedMultiplier: env.biteSpeedMultiplier ?? 1,
+      rareBonus: env.rareBonus ?? 0,
+    };
   }
 
   private applyFishPool(): void {
@@ -218,11 +241,31 @@ export class FishingStateMachine implements Component {
     if (this.flightProgress >= 1) {
       this.flightProgress = 1;
       this.bobber.show(this.flightTarget.x, this.flightTarget.z);
-      const biteMult = this.player?.activeLure.biteSpeedMultiplier ?? 1;
+      const biteMult = (this.player?.activeLure.biteSpeedMultiplier ?? 1) * this.env.biteSpeedMultiplier;
       this.waitDuration = (2 + Math.random() * 6) / biteMult;
       this.waitTimer = 0;
+      this.twitchCooldown = 0;
+      this.spaceWasDown = this.input.spaceDown;
+      this.spaceHeldTime = 0;
+
+      // Roll the fish now so the approaching shadow can telegraph size and rarity
+      this.rollPendingFish();
+
       this.setState(FishingState.WAITING);
-      this.events.emit(Events.BOBBER_LAND);
+      this.events.emit(Events.BOBBER_LAND, {
+        x: this.flightTarget.x,
+        z: this.flightTarget.z,
+        waitDuration: this.waitDuration,
+      });
+      this.events.emit(Events.FISH_APPROACH, {
+        x: this.flightTarget.x,
+        z: this.flightTarget.z,
+        arriveIn: this.waitDuration,
+        rarity: this.pendingCatch!.species.rarity,
+        weight: this.pendingCatch!.weight,
+        maxWeight: this.pendingCatch!.species.maxWeight,
+        isTrophy: this.pendingCatch!.isTrophy ?? false,
+      });
     } else {
       const t = this.flightProgress;
       const x = this.flightStart.x + (this.flightTarget.x - this.flightStart.x) * t;
@@ -234,15 +277,62 @@ export class FishingStateMachine implements Component {
     }
   }
 
+  private rollPendingFish(): void {
+    const lureBonus = this.player?.activeLure.rareBonusChance ?? 0;
+    const boatBonus = this.player?.activeBoat?.rarityBoost ?? 0;
+    const fish = this.raritySystem.rollFish(lureBonus + boatBonus + this.env.rareBonus);
+
+    let weight = this.raritySystem.rollWeight(fish);
+    let coins = this.raritySystem.rollCoins(fish);
+    let xp = fish.xpReward;
+    let isTrophy = false;
+
+    // 4% chance for a Trophy variant
+    const TROPHY_CHANCE = 0.04;
+    if (Math.random() < TROPHY_CHANCE) {
+      isTrophy = true;
+      weight = +(weight * (1.5 + Math.random() * 1.5)).toFixed(2);
+      coins = Math.round(coins * 1.75);
+      xp = Math.round(xp * 1.5);
+    }
+
+    this.reelFishName = isTrophy ? `Trophy ${fish.name}` : fish.name;
+    this.pendingCatch = { species: fish, weight, coins, xp, isTrophy };
+  }
+
   // --- WAITING ---
   private updateWaiting(dt: number): void {
     this.waitTimer += dt;
+    this.twitchCooldown = Math.max(0, this.twitchCooldown - dt);
+
+    // Lure twitch: a quick space tap entices the fish, shortening the wait
+    const spaceDown = this.input.spaceDown;
+    if (spaceDown) {
+      this.spaceHeldTime += dt;
+    } else {
+      if (this.spaceWasDown && this.spaceHeldTime < 0.3 && this.twitchCooldown <= 0) {
+        this.twitchCooldown = 1.5;
+        this.waitTimer += this.waitDuration * 0.12;
+        this.bobber.twitch();
+        this.events.emit(Events.LURE_TWITCH, {
+          x: this.bobber.position.x,
+          z: this.bobber.position.z,
+        });
+      }
+      this.spaceHeldTime = 0;
+    }
+    this.spaceWasDown = spaceDown;
+
     if (this.waitTimer >= this.waitDuration) {
       this.bobber.setSinking(true);
       this.biteTimer = 0;
       this.biteDuration = 2.0 + Math.random() * 1.5;
       this.setState(FishingState.BITING);
-      this.events.emit(Events.FISH_BITE);
+      this.events.emit(Events.FISH_BITE, {
+        x: this.bobber.position.x,
+        z: this.bobber.position.z,
+        rarity: this.pendingCatch?.species.rarity,
+      });
     }
   }
 
@@ -252,31 +342,21 @@ export class FishingStateMachine implements Component {
 
     if (this.actionDown) {
       this.bobber.setSinking(false);
-      const lureBonus = this.player?.activeLure.rareBonusChance ?? 0;
-      const boatBonus = this.player?.activeBoat?.rarityBoost ?? 0;
-      const fish = this.raritySystem.rollFish(lureBonus + boatBonus);
-      this.reelDifficulty = fish.reelDifficulty;
-      this.reelProgress = 0;
+      const fish = this.pendingCatch!;
 
-      let weight = this.raritySystem.rollWeight(fish);
-      let coins = this.raritySystem.rollCoins(fish);
-      let xp = fish.xpReward;
-      let isTrophy = false;
-
-      // 4% chance for a Trophy variant
-      const TROPHY_CHANCE = 0.04;
-      if (Math.random() < TROPHY_CHANCE) {
-        isTrophy = true;
-        weight = +(weight * (1.5 + Math.random() * 1.5)).toFixed(2);
-        coins = Math.round(coins * 1.75);
-        xp = Math.round(xp * 1.5);
-      }
-
-      this.reelFishName = isTrophy ? `Trophy ${fish.name}` : fish.name;
-      this.pendingCatch = { species: fish, weight, coins, xp, isTrophy };
+      this.fight = new FightModel(fish.species, fish.weight, {
+        reelMultiplier: this.player?.activeRod.reelSpeedMultiplier ?? 1,
+        lineMaxWeight: this.player?.activeLine.maxFishWeight ?? 10,
+      });
+      this.fightAnchor.x = this.bobber.position.x;
+      this.fightAnchor.z = this.bobber.position.z;
 
       this.setState(FishingState.REELING);
-      this.events.emit(Events.REEL_START, { fishName: this.reelFishName, rarity: fish.rarity });
+      this.events.emit(Events.REEL_START, {
+        fishName: this.reelFishName,
+        rarity: fish.species.rarity,
+        behavior: this.fight.behaviorName,
+      });
       return;
     }
 
@@ -288,30 +368,56 @@ export class FishingStateMachine implements Component {
     }
   }
 
-  // --- REELING ---
+  // --- REELING (fight model) ---
   private updateReeling(dt: number): void {
-    const reelMult = this.player?.activeRod.reelSpeedMultiplier ?? 1;
-    const fillRate = ((1 - this.reelDifficulty) * 1.0 + 0.3) * reelMult;
-    const drainRate = 0.08 + this.reelDifficulty * 0.12;
-
-    if (this.actionDown) {
-      this.reelProgress += fillRate * dt;
-    } else {
-      this.reelProgress -= drainRate * dt;
+    const fight = this.fight;
+    if (!fight) {
+      this.setState(FishingState.IDLE);
+      return;
     }
-    this.reelProgress = Math.max(0, Math.min(1, this.reelProgress));
+
+    fight.update(dt, this.actionDown);
+
+    // The fish drags the bobber around its anchor point
+    const dragDist = fight.pull * 1.4;
+    const targetX = this.fightAnchor.x + Math.cos(fight.dragAngle) * dragDist;
+    const targetZ = this.fightAnchor.z + Math.sin(fight.dragAngle) * dragDist;
+    this.bobber.position.x += (targetX - this.bobber.position.x) * Math.min(1, dt * 3);
+    this.bobber.position.z += (targetZ - this.bobber.position.z) * Math.min(1, dt * 3);
 
     this.events.emit(Events.REEL_PROGRESS, {
-      progress: this.reelProgress,
+      progress: fight.progress,
+      tension: fight.tension,
+      stamina: fight.stamina,
+      danger: fight.inDanger,
+      burst: fight.burstActive,
       fishName: this.reelFishName,
     });
 
+    // Bobber dunks while the player is winching
     this.bobber.setSinking(this.actionDown);
 
-    if (this.reelProgress >= 1) {
-      this.setState(FishingState.CAUGHT);
-      this.events.emit(Events.FISH_CAUGHT, this.pendingCatch);
-      this.resetFishing();
+    switch (fight.outcome) {
+      case 'caught':
+        this.setState(FishingState.CAUGHT);
+        this.events.emit(Events.FISH_CAUGHT, this.pendingCatch);
+        this.resetFishing();
+        this.fight = null;
+        break;
+      case 'snapped':
+        this.resetFishing();
+        this.fight = null;
+        this.setState(FishingState.ESCAPED);
+        this.escapedTimer = 0;
+        this.events.emit(Events.LINE_SNAPPED, { fishName: this.reelFishName });
+        break;
+      case 'escaped':
+        this.resetFishing();
+        this.fight = null;
+        this.setState(FishingState.ESCAPED);
+        this.escapedTimer = 0;
+        this.events.emit(Events.FISH_ESCAPED, { fishName: this.reelFishName });
+        break;
     }
   }
 
@@ -350,7 +456,11 @@ export class FishingStateMachine implements Component {
   }
 
   get currentCastPower(): number { return this.castPower; }
-  get currentReelProgress(): number { return this.reelProgress; }
+  get currentReelProgress(): number { return this.fight?.progress ?? 0; }
+  get currentTension(): number { return this.fight?.tension ?? 0; }
+  get currentStamina(): number { return this.fight?.stamina ?? 1; }
+  get inDanger(): boolean { return this.fight?.inDanger ?? false; }
+  get fishIsBursting(): boolean { return this.fight?.burstActive ?? false; }
   get currentReelFishName(): string { return this.reelFishName; }
   get lastCatch(): CatchData | null { return this.pendingCatch; }
 

@@ -31,6 +31,10 @@ export const FISHING_SPOTS: FishingSpot[] = [
   { id: 'volcano-platform', name: 'Lava Platform', terrain: 'volcano', x: 0, z: -1, radius: 6 },
   { id: 'volcano-obsidian-cove', name: 'Obsidian Cove', terrain: 'volcano', x: -16, z: -8, radius: 9 },
   { id: 'volcano-magma-trench', name: 'Magma Trench', terrain: 'volcano', x: 2, z: 46, radius: 12, requiresBoat: true, requiresDeepWater: true },
+  { id: 'reservoir-keepers-pier', name: "Keeper's Pier", terrain: 'reservoir', x: 0, z: -2, radius: 6 },
+  { id: 'reservoir-flooded-forest', name: 'Flooded Forest', terrain: 'reservoir', x: -13, z: -6, radius: 8 },
+  { id: 'reservoir-dam-wall', name: 'Dam Wall', terrain: 'reservoir', x: 15, z: 20, radius: 9, requiresBoat: true },
+  { id: 'reservoir-spillway-deep', name: 'Old Spillway', terrain: 'reservoir', x: -4, z: 44, radius: 12, requiresBoat: true, requiresDeepWater: true },
 ];
 
 export function findFishingSpot(

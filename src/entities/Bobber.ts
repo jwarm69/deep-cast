@@ -14,6 +14,7 @@ export class Bobber implements Component {
   private bobTime = 0;
   private sinking = false;
   private sinkAmount = 0;
+  private twitchAmount = 0;
 
   constructor(scene: THREE.Scene, water: WaterSystem) {
     this.scene = scene;
@@ -62,6 +63,11 @@ export class Bobber implements Component {
     this.sinking = sinking;
   }
 
+  /** Quick dip from a lure twitch */
+  twitch(): void {
+    this.twitchAmount = 0.18;
+  }
+
   update(dt: number): void {
     if (!this.mesh.visible) return;
 
@@ -80,9 +86,12 @@ export class Bobber implements Component {
       this.sinkAmount = Math.max(this.sinkAmount - dt * 3.0, 0);
     }
 
+    // Twitch dip decays quickly
+    this.twitchAmount = Math.max(0, this.twitchAmount - dt * 0.9);
+
     this.mesh.position.set(
       this.position.x,
-      waveY + bob - this.sinkAmount,
+      waveY + bob - this.sinkAmount - this.twitchAmount,
       this.position.z,
     );
 

@@ -70,6 +70,7 @@ export class FishingStateMachine implements Component {
   // Fight
   private fight: FightModel | null = null;
   private fightAnchor = { x: 0, z: 0 };
+  private fightActionWasDown = false;
 
   // Escaped
   private escapedTimer = 0;
@@ -343,13 +344,21 @@ export class FishingStateMachine implements Component {
     if (this.actionDown) {
       this.bobber.setSinking(false);
       const fish = this.pendingCatch!;
+      const rod = this.player?.activeRod;
+      const lineData = this.player?.activeLine;
+      const lure = this.player?.activeLure;
 
       this.fight = new FightModel(fish.species, fish.weight, {
-        reelMultiplier: this.player?.activeRod.reelSpeedMultiplier ?? 1,
-        lineMaxWeight: this.player?.activeLine.maxFishWeight ?? 10,
+        reelMultiplier: rod?.reelSpeedMultiplier ?? 1,
+        lineMaxWeight: lineData?.maxFishWeight ?? 10,
+        tensionForgiveness: 1 + ((rod?.tier ?? 1) - 1) * 0.09,
+        pumpStrength: 1 + ((rod?.tier ?? 1) - 1) * 0.12,
+        lineForgiveness: 1 + ((lineData?.tier ?? 1) - 1) * 0.1,
+        lureAggression: 1 + (lure?.rareBonusChance ?? 0) * 0.35,
       });
       this.fightAnchor.x = this.bobber.position.x;
       this.fightAnchor.z = this.bobber.position.z;
+      this.fightActionWasDown = this.actionDown;
 
       this.setState(FishingState.REELING);
       this.events.emit(Events.REEL_START, {
@@ -376,7 +385,12 @@ export class FishingStateMachine implements Component {
       return;
     }
 
-    fight.update(dt, this.actionDown);
+    const holding = this.actionDown;
+    const justPressed = holding && !this.fightActionWasDown;
+    const justReleased = !holding && this.fightActionWasDown;
+    this.fightActionWasDown = holding;
+
+    fight.update(dt, { holding, justPressed, justReleased });
 
     // The fish drags the bobber around its anchor point
     const dragDist = fight.pull * 1.4;
@@ -391,6 +405,10 @@ export class FishingStateMachine implements Component {
       stamina: fight.stamina,
       danger: fight.inDanger,
       burst: fight.burstActive,
+      pumpReady: fight.pumpReady,
+      pumpFlash: fight.pumpFlash,
+      lineRisk: fight.lineRisk,
+      hint: fight.fightHint,
       fishName: this.reelFishName,
     });
 
@@ -442,6 +460,7 @@ export class FishingStateMachine implements Component {
     this.bobber.hide();
     this.line.hide();
     this.castPower = 0;
+    this.fightActionWasDown = false;
   }
 
   private updateLine(): void {
@@ -461,6 +480,9 @@ export class FishingStateMachine implements Component {
   get currentStamina(): number { return this.fight?.stamina ?? 1; }
   get inDanger(): boolean { return this.fight?.inDanger ?? false; }
   get fishIsBursting(): boolean { return this.fight?.burstActive ?? false; }
+  get pumpReady(): boolean { return this.fight?.pumpReady ?? false; }
+  get pumpFlash(): number { return this.fight?.pumpFlash ?? 0; }
+  get currentFightHint(): string { return this.fight?.fightHint ?? ''; }
   get currentReelFishName(): string { return this.reelFishName; }
   get lastCatch(): CatchData | null { return this.pendingCatch; }
 

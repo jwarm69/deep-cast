@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { Component, Events, GameEvent } from '../core/types';
+import { Component, Events, GameEvent, PlayerMode } from '../core/types';
 import { EventSystem } from '../core/EventSystem';
 import { RemotePresenceState } from './types';
 
@@ -14,6 +14,7 @@ interface RemotePlayerEntry {
   targetPos: THREE.Vector3;
   lastSeen: number;
   activity: string;
+  mode: PlayerMode;
 }
 
 const ACTIVITY_ICONS: Record<string, string> = {
@@ -94,6 +95,16 @@ export class RemotePlayerRenderer implements Component {
 
       // Smooth position interpolation
       entry.group.position.lerp(entry.targetPos, Math.min(lerpSpeed, 1));
+
+      const dx = entry.targetPos.x - entry.group.position.x;
+      const dz = entry.targetPos.z - entry.group.position.z;
+      if (dx * dx + dz * dz > 0.0001) {
+        const targetAngle = Math.atan2(dx, dz);
+        let angleDiff = targetAngle - entry.group.rotation.y;
+        while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
+        while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
+        entry.group.rotation.y += angleDiff * Math.min(dt * 5, 1);
+      }
     }
   }
 
@@ -111,6 +122,11 @@ export class RemotePlayerRenderer implements Component {
       activeIds.add(p.playerId);
 
       let entry = this.players.get(p.playerId);
+      if (entry && entry.mode !== p.mode) {
+        this.removePlayer(p.playerId);
+        entry = undefined;
+      }
+
       if (!entry) {
         entry = this.createPlayer(p);
         this.players.set(p.playerId, entry);
@@ -139,16 +155,51 @@ export class RemotePlayerRenderer implements Component {
   private createPlayer(p: RemotePresenceState): RemotePlayerEntry {
     const group = new THREE.Group();
     const color = colorForId(p.playerId);
+    const isBoat = p.mode === PlayerMode.BOAT;
 
     const bodyMat = new THREE.MeshStandardMaterial({ color, roughness: 0.6 });
     const skinMat = new THREE.MeshStandardMaterial({ color: 0xdeb887, roughness: 0.6 });
+
+    if (isBoat) {
+      const hullMat = new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.7 });
+      const trimMat = new THREE.MeshStandardMaterial({ color, roughness: 0.55 });
+
+      const hull = new THREE.Mesh(
+        new THREE.BoxGeometry(1.45, 0.32, 2.6),
+        hullMat,
+      );
+      hull.position.set(0, 0.16, 0);
+      hull.castShadow = true;
+      hull.receiveShadow = true;
+      group.add(hull);
+
+      const bow = new THREE.Mesh(
+        new THREE.ConeGeometry(0.72, 0.8, 4),
+        hullMat,
+      );
+      bow.position.set(0, 0.16, 1.7);
+      bow.rotation.x = Math.PI / 2;
+      bow.castShadow = true;
+      bow.receiveShadow = true;
+      group.add(bow);
+
+      const seat = new THREE.Mesh(
+        new THREE.BoxGeometry(1.05, 0.12, 0.32),
+        trimMat,
+      );
+      seat.position.set(0, 0.46, -0.2);
+      seat.castShadow = true;
+      group.add(seat);
+    }
+
+    const bodyLift = isBoat ? 0.25 : 0;
 
     // Torso
     const torso = new THREE.Mesh(
       new THREE.CapsuleGeometry(0.35, 0.8, 8, 16),
       bodyMat,
     );
-    torso.position.y = 1.0;
+    torso.position.y = 1.0 + bodyLift;
     torso.castShadow = true;
     group.add(torso);
 
@@ -157,7 +208,7 @@ export class RemotePlayerRenderer implements Component {
       new THREE.SphereGeometry(0.25, 12, 8),
       skinMat,
     );
-    head.position.y = 1.8;
+    head.position.y = 1.8 + bodyLift;
     head.castShadow = true;
     group.add(head);
 
@@ -167,14 +218,14 @@ export class RemotePlayerRenderer implements Component {
       new THREE.CylinderGeometry(0.4, 0.4, 0.05, 16),
       hatMat,
     );
-    brim.position.y = 1.95;
+    brim.position.y = 1.95 + bodyLift;
     group.add(brim);
 
     const crown = new THREE.Mesh(
       new THREE.CylinderGeometry(0.22, 0.25, 0.25, 16),
       hatMat,
     );
-    crown.position.y = 2.1;
+    crown.position.y = 2.1 + bodyLift;
     group.add(crown);
 
     // Legs
@@ -182,7 +233,8 @@ export class RemotePlayerRenderer implements Component {
     const legMat = new THREE.MeshStandardMaterial({ color: 0x374151, roughness: 0.7 });
     for (const offsetX of [-0.15, 0.15]) {
       const leg = new THREE.Mesh(legGeo, legMat);
-      leg.position.set(offsetX, 0.35, 0);
+      leg.position.set(offsetX, isBoat ? 0.66 : 0.35, isBoat ? -0.12 : 0);
+      if (isBoat) leg.rotation.x = Math.PI / 2;
       leg.castShadow = true;
       group.add(leg);
     }
@@ -194,7 +246,7 @@ export class RemotePlayerRenderer implements Component {
       depthTest: false,
     });
     const label = new THREE.Sprite(labelMat);
-    label.position.y = 2.7;
+    label.position.y = isBoat ? 2.95 : 2.7;
     label.scale.set(2.5, 0.625, 1);
     group.add(label);
 
@@ -207,6 +259,7 @@ export class RemotePlayerRenderer implements Component {
       targetPos: new THREE.Vector3(p.position.x, p.position.y, p.position.z),
       lastSeen: Date.now(),
       activity: p.activity,
+      mode: p.mode,
     };
   }
 

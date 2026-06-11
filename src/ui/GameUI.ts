@@ -42,6 +42,7 @@ export class GameUI implements Component {
   private staminaBar: HTMLElement;
   private reelBehavior: HTMLElement;
   private reelFishName: HTMLElement;
+  private reelLabel: HTMLElement;
   private screenFlash: HTMLElement;
   private eventBanner: HTMLElement;
   private catchPopup: HTMLElement;
@@ -80,6 +81,7 @@ export class GameUI implements Component {
     this.staminaBar = document.getElementById('stamina-bar')!;
     this.reelBehavior = document.getElementById('reel-behavior')!;
     this.reelFishName = document.getElementById('reel-fish-name')!;
+    this.reelLabel = document.getElementById('reel-label')!;
     this.screenFlash = document.getElementById('screen-flash')!;
     this.eventBanner = document.getElementById('event-banner')!;
     this.catchPopup = document.getElementById('catch-popup')!;
@@ -93,7 +95,7 @@ export class GameUI implements Component {
     // Create deep water badge dynamically
     this.deepWaterBadge = document.createElement('div');
     this.deepWaterBadge.id = 'deep-water-badge';
-    this.deepWaterBadge.textContent = 'DEEP WATER';
+    this.deepWaterBadge.textContent = '';
     this.deepWaterBadge.style.cssText = `
       position: absolute; top: 16px; right: 16px;
       padding: 6px 14px; border-radius: 6px;
@@ -137,19 +139,23 @@ export class GameUI implements Component {
     });
     this.events.on(Events.BOARD_BOAT, () => {
       this.playerMode = PlayerMode.BOAT;
+      this.updateBoatBadge();
     });
     this.events.on(Events.DISEMBARK_BOAT, () => {
       this.playerMode = PlayerMode.SHORE;
       this.isDeepWater = false;
-      this.deepWaterBadge.style.display = 'none';
+      this.updateBoatBadge();
     });
     this.events.on(Events.ENTER_DEEP_WATER, () => {
       this.isDeepWater = true;
-      this.deepWaterBadge.style.display = 'block';
+      this.updateBoatBadge();
     });
     this.events.on(Events.LEAVE_DEEP_WATER, () => {
       this.isDeepWater = false;
-      this.deepWaterBadge.style.display = 'none';
+      this.updateBoatBadge();
+    });
+    this.events.on(Events.BOAT_EQUIPPED, () => {
+      this.updateBoatBadge();
     });
     // Sync HUD from loaded save
     this.syncHUD();
@@ -212,6 +218,18 @@ export class GameUI implements Component {
     this.levelUpTimer = 3.0;
   }
 
+  private updateBoatBadge(): void {
+    if (this.playerMode !== PlayerMode.BOAT) {
+      this.deepWaterBadge.style.display = 'none';
+      return;
+    }
+
+    const boatName = this.player.activeBoat?.name ?? 'Boat';
+    const zone = this.isDeepWater ? 'DEEP WATER' : 'SHALLOWS';
+    this.deepWaterBadge.textContent = `${boatName} | ${zone}`;
+    this.deepWaterBadge.style.display = 'block';
+  }
+
   update(dt: number): void {
     const state = this.fsm.state;
 
@@ -229,6 +247,9 @@ export class GameUI implements Component {
       this.biteUI.classList.remove('visible');
       this.reelUI.classList.remove('visible');
       this.reelUI.classList.remove('danger');
+      this.reelUI.classList.remove('burst');
+      this.reelUI.classList.remove('pump-ready');
+      this.reelUI.classList.remove('pump-hit');
       this.escapedUI.classList.remove('visible');
 
       if (!this.catchDisplayed) {
@@ -243,9 +264,9 @@ export class GameUI implements Component {
         if (isMobile) {
           // Prompt hidden on mobile via CSS; action button handles context
         } else if (this.playerMode === PlayerMode.BOAT) {
-          this.prompt.textContent = 'WASD to sail | Hold SPACE to cast | E to disembark | TAB shop | J journal';
+          this.prompt.textContent = `WASD to sail ${this.player.activeBoat?.name ?? 'boat'} | Hold SPACE to cast | E to disembark | TAB shop | J journal`;
         } else {
-          this.prompt.textContent = 'WASD to move | Hold SPACE to cast | E to board boat | TAB shop | J journal';
+          this.prompt.textContent = 'WASD to move | Hold SPACE to cast | E to board at dock | TAB shop | J journal';
         }
         this.prompt.style.display = 'block';
         if (this.catchDisplayed) {
@@ -283,7 +304,11 @@ export class GameUI implements Component {
         this.tensionBar.style.width = `${this.fsm.currentTension * 100}%`;
         this.staminaBar.style.width = `${this.fsm.currentStamina * 100}%`;
         this.reelUI.classList.toggle('danger', this.fsm.inDanger);
+        this.reelUI.classList.toggle('burst', this.fsm.fishIsBursting);
+        this.reelUI.classList.toggle('pump-ready', this.fsm.pumpReady);
+        this.reelUI.classList.toggle('pump-hit', this.fsm.pumpFlash > 0);
         this.reelFishName.textContent = this.fsm.currentReelFishName;
+        this.reelLabel.textContent = this.fsm.currentFightHint;
         this.prompt.style.display = 'none';
         break;
 

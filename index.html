@@ -163,9 +163,24 @@
       border-color: rgba(239, 68, 68, 0.7);
       animation: danger-pulse 0.35s ease-in-out infinite alternate;
     }
+    #reel-ui.burst:not(.danger) {
+      border-color: rgba(250, 204, 21, 0.55);
+      box-shadow: 0 0 16px rgba(250, 204, 21, 0.22);
+    }
+    #reel-ui.pump-ready:not(.danger) {
+      border-color: rgba(56, 189, 248, 0.75);
+      box-shadow: 0 0 18px rgba(56, 189, 248, 0.28);
+    }
+    #reel-ui.pump-hit {
+      animation: pump-pop 0.22s ease-out;
+    }
     @keyframes danger-pulse {
       from { box-shadow: 0 0 0 rgba(239,68,68,0); }
       to { box-shadow: 0 0 22px rgba(239,68,68,0.55); }
+    }
+    @keyframes pump-pop {
+      from { transform: scale(1.02); border-color: rgba(74, 222, 128, 0.9); }
+      to { transform: scale(1); }
     }
     .fight-meter {
       display: flex;
@@ -218,7 +233,12 @@
     #reel-label {
       font-size: 12px;
       opacity: 0.65;
+      max-width: 286px;
+      text-align: right;
     }
+    #reel-ui.danger #reel-label { color: #fecaca; opacity: 0.95; }
+    #reel-ui.pump-ready #reel-label { color: #bae6fd; opacity: 0.95; }
+    #reel-ui.pump-hit #reel-label { color: #bbf7d0; opacity: 0.95; }
     #reel-fish-name {
       font-size: 16px;
       font-weight: 700;
@@ -521,7 +541,7 @@
         <div class="fight-label">FISH</div>
         <div class="fight-bar-bg" id="stamina-bar-bg"><div id="stamina-bar"></div></div>
       </div>
-      <div id="reel-label">Hold to reel — ease off when tension spikes!</div>
+      <div id="reel-label">Hold to reel, release to bleed tension, pump after easing off</div>
     </div>
     <div id="catch-popup">
       <div id="catch-title">You caught</div>

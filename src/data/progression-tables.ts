@@ -23,7 +23,7 @@ export const TERRAIN_UNLOCKS = {
 
 /** Boat unlock data — Phase 6 */
 export const BOAT_UNLOCKS = [
-  { id: 'rowboat', name: 'Rowboat', cost: 0, levelRequired: 5, speed: 3 },
+  { id: 'rowboat', name: 'Rowboat', cost: 0, levelRequired: 1, speed: 3 },
   { id: 'skiff', name: 'Skiff', cost: 400, levelRequired: 8, speed: 5 },
   { id: 'sailboat', name: 'Sailboat', cost: 1000, levelRequired: 12, speed: 7 },
   { id: 'speedboat', name: 'Speedboat', cost: 2500, levelRequired: 18, speed: 12 },

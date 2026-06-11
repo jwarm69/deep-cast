@@ -6,6 +6,7 @@ import { TerrainType, BIOME_CONFIGS } from '../data/biome-config';
 
 const SAVE_KEY = 'deep-cast-save';
 const SAVE_VERSION = 2;
+const STARTER_BOAT_ID = 'rowboat';
 
 export interface FishJournalEntry {
   speciesId: string;
@@ -53,8 +54,8 @@ export class PlayerState implements Component {
 
   // Biome & boats
   currentTerrain: TerrainType = 'lake';
-  ownedBoats: Set<string> = new Set();
-  activeBoatId: string | null = null;
+  ownedBoats: Set<string> = new Set([STARTER_BOAT_ID]);
+  activeBoatId: string | null = STARTER_BOAT_ID;
 
   constructor(events: EventSystem) {
     this.events = events;
@@ -62,6 +63,7 @@ export class PlayerState implements Component {
 
   init(): void {
     this.load();
+    this.ensureStarterBoat();
     this.events.on(Events.FISH_CAUGHT, (e) => {
       const data = e.data as CatchData;
       this.onFishCaught(data);
@@ -299,8 +301,8 @@ export class PlayerState implements Component {
       if (data.version === 1) {
         data.version = 2;
         data.currentTerrain = 'lake';
-        data.ownedBoats = [];
-        data.activeBoatId = null;
+        data.ownedBoats = [STARTER_BOAT_ID];
+        data.activeBoatId = STARTER_BOAT_ID;
       }
 
       if (data.version !== SAVE_VERSION) return;
@@ -319,8 +321,17 @@ export class PlayerState implements Component {
       this.currentTerrain = data.currentTerrain;
       this.ownedBoats = new Set(data.ownedBoats);
       this.activeBoatId = data.activeBoatId;
+      this.ensureStarterBoat();
     } catch {
       // Corrupt save — start fresh
+    }
+  }
+
+  private ensureStarterBoat(): void {
+    this.ownedBoats.add(STARTER_BOAT_ID);
+    const activeExists = !!this.activeBoatId && BOATS.some((boat) => boat.id === this.activeBoatId);
+    if (!activeExists || !this.ownedBoats.has(this.activeBoatId!)) {
+      this.activeBoatId = STARTER_BOAT_ID;
     }
   }
 

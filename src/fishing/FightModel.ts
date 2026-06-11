@@ -7,6 +7,16 @@ export type FightOutcome = 'fighting' | 'caught' | 'snapped' | 'escaped';
 export interface FightGear {
   reelMultiplier: number;   // from rod
   lineMaxWeight: number;    // from line — fish heavier than this strain the line
+  tensionForgiveness?: number; // from rod tier — higher = tension builds slower
+  pumpStrength?: number;       // from rod tier — higher = stronger pump bonuses
+  lineForgiveness?: number;    // from line tier — higher = longer snap grace
+  lureAggression?: number;     // from lure tier/rarity — higher = livelier fish
+}
+
+export interface FightInput {
+  holding: boolean;
+  justPressed: boolean;
+  justReleased: boolean;
 }
 
 /**
@@ -31,11 +41,13 @@ export class FightModel {
   /** Lateral drag direction for bobber juice, radians */
   dragAngle = Math.random() * Math.PI * 2;
   burstActive = false;
+  pumpCharge = 0;
+  pumpFlash = 0;
 
   private behavior: FightBehavior;
   private difficulty: number;      // 0-1
   private overweight: number;      // 1 = within line rating, >1 = stressing the line
-  private gear: FightGear;
+  private gear: Required<FightGear>;
 
   private fightTime = 0;
   private burstTimer = 0;
@@ -44,11 +56,23 @@ export class FightModel {
   private burstElapsed = 0;
   private snapTimer = 0;
   private fakeResting = false;
+  private holding = false;
+  private releaseTimer = 0;
+  private holdTimer = 0;
+  private lineStress = 1;
 
   constructor(species: FishSpecies, weight: number, gear: FightGear) {
-    this.difficulty = species.reelDifficulty;
-    this.gear = gear;
+    this.difficulty = Math.max(0.05, Math.min(1, species.reelDifficulty));
+    this.gear = {
+      reelMultiplier: gear.reelMultiplier,
+      lineMaxWeight: gear.lineMaxWeight,
+      tensionForgiveness: gear.tensionForgiveness ?? 1,
+      pumpStrength: gear.pumpStrength ?? 1,
+      lineForgiveness: gear.lineForgiveness ?? 1,
+      lureAggression: gear.lureAggression ?? 1,
+    };
     this.overweight = Math.max(1, weight / Math.max(1, gear.lineMaxWeight));
+    this.lineStress = this.overweight > 1 ? 1 + (this.overweight - 1) * 1.4 : 1;
     this.behavior = FightModel.pickBehavior(species, weight);
     this.scheduleNextBurst(true);
   }
@@ -71,21 +95,45 @@ export class FightModel {
   }
 
   get inDanger(): boolean {
-    return this.tension >= 0.75;
+    return this.tension >= 0.72;
   }
 
   get behaviorName(): FightBehavior {
     return this.behavior;
   }
 
-  update(dt: number, holding: boolean): void {
+  get pumpReady(): boolean {
+    return this.pumpCharge >= 0.55 && this.tension < 0.88;
+  }
+
+  get lineRisk(): number {
+    const overweightRisk = Math.max(0, Math.min(1, (this.overweight - 1) / 1.5));
+    return Math.max(this.tension, overweightRisk * 0.55);
+  }
+
+  get fightHint(): string {
+    if (this.inDanger) return 'Ease off - tension is near the snap point';
+    if (this.pumpFlash > 0) return 'Rod pump landed - keep pressure under control';
+    if (this.pumpReady) return 'Pump now - re-engage before the fish gains distance';
+    if (this.fakeResting) return 'It went quiet - be ready for a hard run';
+    if (this.burstActive) return this.burstHint();
+    if (this.stamina < 0.25) return 'Fish is tired - steady pressure will finish it';
+    return 'Hold to reel, release to bleed tension, pump after easing off';
+  }
+
+  update(dt: number, input: FightInput): void {
     if (this.outcome !== 'fighting') return;
     this.fightTime += dt;
+    this.pumpFlash = Math.max(0, this.pumpFlash - dt);
+
+    const releaseDuration = this.releaseTimer;
+    this.holding = input.holding;
 
     this.updateBursts(dt);
+    this.updatePumpWindow(dt, input, releaseDuration);
 
     // --- Fish pull: baseline scales with difficulty and remaining stamina ---
-    const basePull = this.difficulty * (0.25 + 0.75 * this.stamina);
+    const basePull = this.basePullFor() * (0.25 + 0.75 * this.stamina) * this.gear.lureAggression;
     let targetPull = basePull;
     if (this.burstActive && !this.fakeResting) {
       const burstStrength = this.burstStrengthFor();
@@ -99,35 +147,41 @@ export class FightModel {
     this.pull += (targetPull - this.pull) * Math.min(1, dt * 8);
 
     // --- Reel progress ---
-    const reelRate = (0.16 + (1 - this.difficulty) * 0.14) * this.gear.reelMultiplier;
-    const runRate = 0.05 + this.pull * 0.16;
-    if (holding) {
+    const reelRate = (0.13 + (1 - this.difficulty) * 0.18) * this.gear.reelMultiplier;
+    const runRate = (0.035 + this.pull * 0.16) * this.escapePressureFor();
+    if (input.holding) {
       // Pulling fish resists the reel
-      this.progress += reelRate * Math.max(0.15, 1 - this.pull * 0.65) * dt;
+      const tiredBonus = 1 + (1 - this.stamina) * 0.5;
+      const heavyPenalty = this.behavior === 'heavy' ? 0.82 : 1;
+      this.progress += reelRate * tiredBonus * heavyPenalty * Math.max(0.12, 1 - this.pull * 0.62) * dt;
     } else {
       this.progress -= runRate * dt;
     }
 
     // --- Tension ---
-    const lineStress = this.overweight > 1 ? 1 + (this.overweight - 1) * 1.4 : 1;
-    if (holding) {
-      this.tension += (0.16 + this.pull * 0.85) * lineStress * dt;
+    if (input.holding) {
+      this.tension += (0.13 + this.pull * 0.82 + this.difficulty * 0.08)
+        * this.lineStress
+        / this.gear.tensionForgiveness
+        * dt;
     } else {
-      this.tension -= 0.75 * dt;
+      const releaseBonus = this.inDanger ? 0.28 : 0;
+      this.tension -= (0.62 + releaseBonus + this.gear.lineForgiveness * 0.08) * dt;
     }
     this.tension = Math.max(0, Math.min(1, this.tension));
 
     // --- Stamina: fish tires fastest when you hold through its pulls ---
-    const tireRate = holding ? 0.045 + this.pull * 0.075 : 0.012;
+    const tireRate = input.holding ? 0.035 + this.pull * 0.07 : 0.006;
     // Easy fish gas out fast; hard fish have deep reserves
     this.stamina -= tireRate * (1.35 - this.difficulty * 0.9) * dt;
+    if (!input.holding && this.fakeResting) this.stamina += 0.012 * dt;
     this.stamina = Math.max(0, this.stamina);
 
     // --- Outcomes ---
     if (this.tension >= 0.995) {
       this.snapTimer += dt;
       // Commons get a long grace window; legendaries snap fast
-      const grace = 0.9 - this.difficulty * 0.65;
+      const grace = Math.max(0.2, (1.0 - this.difficulty * 0.65) * this.gear.lineForgiveness / Math.min(this.lineStress, 2.5));
       if (this.snapTimer >= grace) {
         this.outcome = 'snapped';
         return;
@@ -148,13 +202,64 @@ export class FightModel {
     }
   }
 
+  private updatePumpWindow(dt: number, input: FightInput, releaseDuration: number): void {
+    if (input.justReleased) {
+      this.pumpCharge = Math.max(this.pumpCharge, this.tension > 0.2 ? 0.18 : 0.08);
+    }
+
+    if (!input.holding) {
+      this.releaseTimer += dt;
+      this.holdTimer = 0;
+      const calmPenalty = this.pull > 1.15 ? 0.45 : 1;
+      this.pumpCharge += (0.58 + this.tension * 0.55) * calmPenalty * dt;
+      this.pumpCharge = Math.min(1, this.pumpCharge);
+      return;
+    }
+
+    this.holdTimer += dt;
+    this.releaseTimer = 0;
+
+    if (input.justPressed && releaseDuration >= 0.14 && releaseDuration <= 1.35 && this.pumpCharge >= 0.35 && this.tension < 0.94) {
+      const timing = 1 - Math.abs(releaseDuration - 0.55) / 0.85;
+      const timingBonus = Math.max(0.35, timing);
+      this.applyPump(this.pumpCharge * timingBonus);
+    } else {
+      this.pumpCharge = Math.max(0, this.pumpCharge - dt * 1.8);
+    }
+  }
+
+  private applyPump(power: number): void {
+    const clamped = Math.max(0.2, Math.min(1, power));
+    const tiredBonus = 1 + (1 - this.stamina) * 0.45;
+    const pump = clamped * this.gear.pumpStrength;
+
+    this.progress += (0.028 + (1 - this.difficulty) * 0.015) * pump * tiredBonus;
+    this.stamina -= (0.035 + this.pull * 0.016) * pump * (1.15 - this.difficulty * 0.35);
+    this.tension += (0.075 + this.pull * 0.12) * pump * this.lineStress / this.gear.tensionForgiveness;
+
+    this.progress = Math.max(0, Math.min(1, this.progress));
+    this.stamina = Math.max(0, Math.min(1, this.stamina));
+    this.tension = Math.max(0, Math.min(1, this.tension));
+    this.pumpCharge = 0;
+    this.pumpFlash = 0.32;
+  }
+
   private updateBursts(dt: number): void {
     if (this.burstActive) {
       this.burstElapsed += dt;
       if (this.burstElapsed >= this.burstDuration) {
+        if (this.fakeResting) {
+          this.fakeResting = false;
+          this.burstElapsed = 0;
+          this.burstDuration = 1.0 + Math.random() * 0.8;
+          this.dragAngle = Math.random() * Math.PI * 2;
+          return;
+        }
         this.burstActive = false;
-        this.fakeResting = false;
         this.scheduleNextBurst(false);
+      }
+      if (this.behavior === 'darting' && !this.fakeResting) {
+        this.dragAngle += Math.sin(this.fightTime * 18) * dt * 3.4;
       }
       return;
     }
@@ -177,12 +282,44 @@ export class FightModel {
   private scheduleNextBurst(first: boolean): void {
     this.burstTimer = 0;
     const base = first ? 0.8 : 0;
+    const fatigueDelay = this.stamina < 0.3 ? 1.35 : 1;
+    const difficultyPace = 0.95 + this.difficulty * 0.18;
     switch (this.behavior) {
-      case 'runner':    this.nextBurstIn = base + 1.6 + Math.random() * 2.2; break;
-      case 'diver':     this.nextBurstIn = base + 1.4 + Math.random() * 1.8; break;
-      case 'darting':   this.nextBurstIn = base + 0.7 + Math.random() * 1.1; break;
-      case 'heavy':     this.nextBurstIn = base + 2.6 + Math.random() * 2.6; break;
-      case 'trickster': this.nextBurstIn = base + 1.2 + Math.random() * 1.8; break;
+      case 'runner':    this.nextBurstIn = (base + 1.6 + Math.random() * 2.2) * fatigueDelay / difficultyPace; break;
+      case 'diver':     this.nextBurstIn = (base + 1.4 + Math.random() * 1.8) * fatigueDelay / difficultyPace; break;
+      case 'darting':   this.nextBurstIn = (base + 0.7 + Math.random() * 1.1) * fatigueDelay / difficultyPace; break;
+      case 'heavy':     this.nextBurstIn = (base + 2.6 + Math.random() * 2.6) * fatigueDelay / difficultyPace; break;
+      case 'trickster': this.nextBurstIn = (base + 1.2 + Math.random() * 1.8) * fatigueDelay / difficultyPace; break;
+    }
+  }
+
+  private basePullFor(): number {
+    switch (this.behavior) {
+      case 'runner': return this.difficulty * 0.95;
+      case 'diver': return this.difficulty * 1.02;
+      case 'darting': return this.difficulty * 0.86;
+      case 'heavy': return this.difficulty * 0.78 + 0.12;
+      case 'trickster': return this.difficulty * 0.9;
+    }
+  }
+
+  private escapePressureFor(): number {
+    switch (this.behavior) {
+      case 'runner': return 1.25;
+      case 'diver': return 1.1;
+      case 'darting': return 1.05;
+      case 'heavy': return 0.72;
+      case 'trickster': return this.fakeResting ? 0.35 : 1.15;
+    }
+  }
+
+  private burstHint(): string {
+    switch (this.behavior) {
+      case 'runner': return 'Long run - feather the line before it snaps';
+      case 'diver': return 'Hard dive - tension will climb fast';
+      case 'darting': return 'Quick darts - tap pressure, do not hold blindly';
+      case 'heavy': return 'Heavy pull - slow pressure wins';
+      case 'trickster': return 'Hard run - the calm was a fake';
     }
   }
 

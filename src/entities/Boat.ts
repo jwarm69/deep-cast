@@ -21,6 +21,9 @@ export class Boat implements Component {
   private cameraTheta = 0;
   private geometries: THREE.BufferGeometry[] = [];
   private materials: THREE.Material[] = [];
+  private velocity = new THREE.Vector3();
+  private wakeMaterials: THREE.MeshBasicMaterial[] = [];
+  private wakeTime = 0;
 
   // Boat bounds on water
   private readonly bounds = {
@@ -56,6 +59,8 @@ export class Boat implements Component {
       case 'research_vessel': this.buildResearchVessel(); break;
       default: this.buildRowboat(); break;
     }
+    this.applyMeshShadows();
+    this.buildWake();
   }
 
   private clearMesh(): void {
@@ -66,6 +71,7 @@ export class Boat implements Component {
     for (const mat of this.materials) mat.dispose();
     this.geometries = [];
     this.materials = [];
+    this.wakeMaterials = [];
   }
 
   private trackGeo(geo: THREE.BufferGeometry): THREE.BufferGeometry {
@@ -78,22 +84,101 @@ export class Boat implements Component {
     return mat;
   }
 
+  private applyMeshShadows(): void {
+    this.group.traverse((obj) => {
+      if (obj instanceof THREE.Mesh) {
+        obj.castShadow = true;
+        obj.receiveShadow = true;
+      }
+    });
+  }
+
+  private buildWake(): void {
+    const wakeGroup = new THREE.Group();
+    const wakeGeo = this.trackGeo(new THREE.PlaneGeometry(0.45, 3.6));
+
+    for (const side of [-1, 1]) {
+      const mat = this.trackMat(new THREE.MeshBasicMaterial({
+        color: 0xdaf7ff,
+        transparent: true,
+        opacity: 0,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+      })) as THREE.MeshBasicMaterial;
+      this.wakeMaterials.push(mat);
+
+      const streak = new THREE.Mesh(wakeGeo, mat);
+      streak.position.set(side * 0.42, -0.28, -2.25);
+      streak.rotation.x = -Math.PI / 2;
+      streak.rotation.z = side * 0.16;
+      streak.scale.set(1.0, 1.0 + this.boatLengthScale() * 0.16, 1);
+      wakeGroup.add(streak);
+    }
+
+    const washMat = this.trackMat(new THREE.MeshBasicMaterial({
+      color: 0xffffff,
+      transparent: true,
+      opacity: 0,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+    })) as THREE.MeshBasicMaterial;
+    this.wakeMaterials.push(washMat);
+
+    const wash = new THREE.Mesh(this.trackGeo(new THREE.CircleGeometry(0.55, 18)), washMat);
+    wash.position.set(0, -0.27, -1.55);
+    wash.rotation.x = -Math.PI / 2;
+    wash.scale.set(1.0, 0.55, 1);
+    wakeGroup.add(wash);
+
+    this.group.add(wakeGroup);
+  }
+
+  private boatLengthScale(): number {
+    if (!this.boatData) return 1;
+    switch (this.boatData.id) {
+      case 'rowboat': return 0.8;
+      case 'skiff': return 0.9;
+      case 'sailboat': return 1.1;
+      case 'speedboat': return 1.2;
+      case 'research_vessel': return 1.45;
+      default: return 1;
+    }
+  }
+
   // --- Builder methods ---
 
   private buildRowboat(): void {
     const wood = this.trackMat(new THREE.MeshStandardMaterial({ color: 0x8b6914, roughness: 0.85 }));
+    const darkWood = this.trackMat(new THREE.MeshStandardMaterial({ color: 0x5c3a16, roughness: 0.9 }));
 
-    // Hull — box, slightly tapered via scaling
     const hullGeo = this.trackGeo(new THREE.BoxGeometry(1.8, 0.5, 3.5));
     const hull = new THREE.Mesh(hullGeo, wood);
     hull.position.y = -0.1;
     this.group.add(hull);
+
+    const bowGeo = this.trackGeo(new THREE.ConeGeometry(0.9, 0.8, 4));
+    const bow = new THREE.Mesh(bowGeo, wood);
+    bow.position.set(0, -0.1, 2.15);
+    bow.rotation.x = Math.PI / 2;
+    this.group.add(bow);
+
+    const sternGeo = this.trackGeo(new THREE.BoxGeometry(1.55, 0.5, 0.35));
+    const stern = new THREE.Mesh(sternGeo, darkWood);
+    stern.position.set(0, -0.08, -1.9);
+    this.group.add(stern);
 
     // Inner floor
     const floorGeo = this.trackGeo(new THREE.BoxGeometry(1.4, 0.08, 3.0));
     const floor = new THREE.Mesh(floorGeo, wood);
     floor.position.y = 0.1;
     this.group.add(floor);
+
+    const railGeo = this.trackGeo(new THREE.BoxGeometry(0.12, 0.16, 3.4));
+    for (const side of [-1, 1]) {
+      const rail = new THREE.Mesh(railGeo, darkWood);
+      rail.position.set(side * 0.95, 0.23, 0);
+      this.group.add(rail);
+    }
 
     // Bench planks
     const benchGeo = this.trackGeo(new THREE.BoxGeometry(1.3, 0.08, 0.3));
@@ -116,7 +201,7 @@ export class Boat implements Component {
       // Paddle blade
       const bladeGeo = this.trackGeo(new THREE.BoxGeometry(0.2, 0.02, 0.4));
       const blade = new THREE.Mesh(bladeGeo, oarMat);
-      blade.position.set(side * 2.0, 0.0, 0);
+      blade.position.set(side * 2.0, 0.0, side * 0.12);
       this.group.add(blade);
     }
   }
@@ -135,7 +220,7 @@ export class Boat implements Component {
     // Bow taper
     const bowGeo = this.trackGeo(new THREE.ConeGeometry(0.8, 1.2, 4));
     const bow = new THREE.Mesh(bowGeo, hullMat);
-    bow.position.set(0, -0.05, -2.5);
+    bow.position.set(0, -0.05, 2.5);
     bow.rotation.x = Math.PI / 2;
     this.group.add(bow);
 
@@ -149,12 +234,12 @@ export class Boat implements Component {
     // Outboard motor
     const motorGeo = this.trackGeo(new THREE.BoxGeometry(0.3, 0.5, 0.4));
     const motor = new THREE.Mesh(motorGeo, metalMat);
-    motor.position.set(0, 0.2, 1.7);
+    motor.position.set(0, 0.2, -1.75);
     this.group.add(motor);
 
     const shaftGeo = this.trackGeo(new THREE.CylinderGeometry(0.04, 0.04, 1.0, 6));
     const shaft = new THREE.Mesh(shaftGeo, metalMat);
-    shaft.position.set(0, -0.3, 1.7);
+    shaft.position.set(0, -0.3, -1.75);
     this.group.add(shaft);
   }
 
@@ -174,28 +259,28 @@ export class Boat implements Component {
     // Bow
     const bowGeo = this.trackGeo(new THREE.ConeGeometry(1.1, 1.5, 4));
     const bow = new THREE.Mesh(bowGeo, hullMat);
-    bow.position.set(0, -0.1, -3.0);
+    bow.position.set(0, -0.1, 3.0);
     bow.rotation.x = Math.PI / 2;
     this.group.add(bow);
 
     // Cabin box
     const cabinGeo = this.trackGeo(new THREE.BoxGeometry(1.4, 0.8, 1.5));
     const cabin = new THREE.Mesh(cabinGeo, woodMat);
-    cabin.position.set(0, 0.6, 0.8);
+    cabin.position.set(0, 0.6, -0.8);
     this.group.add(cabin);
 
     // Mast
     const mastGeo = this.trackGeo(new THREE.CylinderGeometry(0.05, 0.06, 5.0, 8));
     const mast = new THREE.Mesh(mastGeo, woodMat);
-    mast.position.set(0, 2.7, -0.5);
+    mast.position.set(0, 2.7, 0.35);
     this.group.add(mast);
 
     // Triangular sail (plane rotated)
     const sailGeo = this.trackGeo(new THREE.BufferGeometry());
     const verts = new Float32Array([
-      0, 0.3, -0.5,   // bottom-front
-      0, 5.0, -0.5,   // top
-      0, 0.3, 1.5,    // bottom-back
+      0, 0.3, 1.25,
+      0, 5.0, 0.35,
+      0, 0.3, -1.25,
     ]);
     sailGeo.setAttribute('position', new THREE.BufferAttribute(verts, 3));
     sailGeo.computeVertexNormals();
@@ -220,7 +305,7 @@ export class Boat implements Component {
     // Sharp bow
     const bowGeo = this.trackGeo(new THREE.ConeGeometry(0.9, 2.0, 4));
     const bow = new THREE.Mesh(bowGeo, hullMat);
-    bow.position.set(0, -0.05, -3.4);
+    bow.position.set(0, -0.05, 3.4);
     bow.rotation.x = Math.PI / 2;
     this.group.add(bow);
 
@@ -234,14 +319,14 @@ export class Boat implements Component {
     // Windshield
     const shieldGeo = this.trackGeo(new THREE.BoxGeometry(1.4, 0.6, 0.08));
     const shield = new THREE.Mesh(shieldGeo, glassMat);
-    shield.position.set(0, 0.6, -0.3);
+    shield.position.set(0, 0.6, 0.65);
     shield.rotation.x = -0.3;
     this.group.add(shield);
 
     // Engine cowling
     const engineGeo = this.trackGeo(new THREE.BoxGeometry(1.0, 0.4, 1.2));
     const engine = new THREE.Mesh(engineGeo, metalMat);
-    engine.position.set(0, 0.3, 1.8);
+    engine.position.set(0, 0.3, -1.8);
     this.group.add(engine);
   }
 
@@ -259,26 +344,26 @@ export class Boat implements Component {
     // Bow
     const bowGeo = this.trackGeo(new THREE.ConeGeometry(1.5, 2.0, 4));
     const bow = new THREE.Mesh(bowGeo, hullMat);
-    bow.position.set(0, -0.15, -4.0);
+    bow.position.set(0, -0.15, 4.0);
     bow.rotation.x = Math.PI / 2;
     this.group.add(bow);
 
     // Bridge cabin
     const bridgeGeo = this.trackGeo(new THREE.BoxGeometry(2.2, 1.2, 2.0));
     const bridge = new THREE.Mesh(bridgeGeo, deckMat);
-    bridge.position.set(0, 0.8, 0.5);
+    bridge.position.set(0, 0.8, -0.5);
     this.group.add(bridge);
 
     // Observation deck (on top of bridge)
     const obsDeckGeo = this.trackGeo(new THREE.BoxGeometry(2.4, 0.1, 2.2));
     const obsDeck = new THREE.Mesh(obsDeckGeo, metalMat);
-    obsDeck.position.set(0, 1.45, 0.5);
+    obsDeck.position.set(0, 1.45, -0.5);
     this.group.add(obsDeck);
 
     // Observation deck railing posts
     const railGeo = this.trackGeo(new THREE.CylinderGeometry(0.03, 0.03, 0.5, 6));
     for (const side of [-1.1, 1.1]) {
-      for (const z of [-0.5, 0.5, 1.5]) {
+      for (const z of [-1.5, -0.5, 0.5]) {
         const post = new THREE.Mesh(railGeo, metalMat);
         post.position.set(side, 1.75, z);
         this.group.add(post);
@@ -288,12 +373,12 @@ export class Boat implements Component {
     // Crane arm
     const craneBaseGeo = this.trackGeo(new THREE.CylinderGeometry(0.08, 0.1, 2.0, 8));
     const craneBase = new THREE.Mesh(craneBaseGeo, metalMat);
-    craneBase.position.set(-0.8, 1.2, -1.5);
+    craneBase.position.set(-0.8, 1.2, 1.5);
     this.group.add(craneBase);
 
     const craneArmGeo = this.trackGeo(new THREE.CylinderGeometry(0.05, 0.05, 2.5, 6));
     const craneArm = new THREE.Mesh(craneArmGeo, metalMat);
-    craneArm.position.set(-0.8, 2.3, -2.2);
+    craneArm.position.set(-0.8, 2.3, 2.2);
     craneArm.rotation.z = 0.8;
     this.group.add(craneArm);
   }
@@ -304,12 +389,14 @@ export class Boat implements Component {
   showAtDock(): void {
     this.group.position.set(0, 0, 4);
     this.group.rotation.set(0, 0, 0);
+    this.velocity.set(0, 0, 0);
     this.group.visible = true;
   }
 
   hide(): void {
     this.group.visible = false;
     this.sailing = false;
+    this.velocity.set(0, 0, 0);
   }
 
   startSailing(): void {
@@ -318,6 +405,7 @@ export class Boat implements Component {
 
   stopSailing(): void {
     this.sailing = false;
+    this.velocity.multiplyScalar(0.35);
   }
 
   setCameraTheta(theta: number): void {
@@ -337,8 +425,58 @@ export class Boat implements Component {
   update(dt: number): void {
     if (!this.group.visible || !this.boatData) return;
 
-    // Wave floating
     const pos = this.group.position;
+    this.wakeTime += dt;
+
+    if (this.sailing) {
+      const { x: inputX, z: inputZ } = this.input.getMovementInput();
+      const hasInput = inputX !== 0 || inputZ !== 0;
+      const desiredVelocity = new THREE.Vector3();
+
+      if (hasInput) {
+        const forward = new THREE.Vector3(
+          -Math.sin(this.cameraTheta),
+          0,
+          -Math.cos(this.cameraTheta),
+        );
+        const right = new THREE.Vector3(forward.z, 0, -forward.x);
+
+        desiredVelocity
+          .addScaledVector(forward, inputZ)
+          .addScaledVector(right, inputX)
+          .normalize()
+          .multiplyScalar(this.boatData.speed);
+      }
+
+      const response = hasInput ? 3.4 : 1.8;
+      this.velocity.lerp(desiredVelocity, 1 - Math.exp(-response * dt));
+    } else {
+      this.velocity.multiplyScalar(Math.pow(0.03, dt));
+    }
+
+    const moving = this.velocity.lengthSq() > 0.0004;
+    let steeringLean = 0;
+    if (moving) {
+      pos.addScaledVector(this.velocity, dt);
+
+      const clampedX = Math.max(this.bounds.minX, Math.min(this.bounds.maxX, pos.x));
+      const clampedZ = Math.max(this.bounds.minZ, Math.min(this.bounds.maxZ, pos.z));
+      if (clampedX !== pos.x) this.velocity.x = 0;
+      if (clampedZ !== pos.z) this.velocity.z = 0;
+      pos.x = clampedX;
+      pos.z = clampedZ;
+
+      const targetAngle = Math.atan2(this.velocity.x, this.velocity.z);
+      let angleDiff = targetAngle - this.group.rotation.y;
+      while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
+      while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
+
+      const turnSpeed = 2.2 + this.boatData.speed * 0.12;
+      this.group.rotation.y += angleDiff * Math.min(dt * turnSpeed, 1);
+      steeringLean = THREE.MathUtils.clamp(-angleDiff * 0.12, -0.12, 0.12);
+    }
+
+    // Wave floating
     const waveY = this.water.getWaveHeight(pos.x, pos.z);
     pos.y = waveY + 0.3; // sit slightly above water surface
 
@@ -351,48 +489,23 @@ export class Boat implements Component {
 
     const tiltX = Math.atan2(hBack - hFront, sampleDist * 2) * 0.5;
     const tiltZ = Math.atan2(hRight - hLeft, sampleDist * 2) * 0.5;
+    const speedRatio = THREE.MathUtils.clamp(this.velocity.length() / Math.max(this.boatData.speed, 0.001), 0, 1);
 
     // Preserve Y rotation (facing), apply tilt
     const yRot = this.group.rotation.y;
-    this.group.rotation.set(tiltX, yRot, tiltZ);
+    this.group.rotation.set(tiltX - speedRatio * 0.035, yRot, tiltZ + steeringLean * speedRatio);
 
-    // Sailing movement
-    if (this.sailing) {
-      const { x: inputX, z: inputZ } = this.input.getMovementInput();
-
-      if (inputX !== 0 || inputZ !== 0) {
-        const forward = new THREE.Vector3(
-          -Math.sin(this.cameraTheta),
-          0,
-          -Math.cos(this.cameraTheta),
-        );
-        const right = new THREE.Vector3(forward.z, 0, -forward.x);
-
-        const moveDir = new THREE.Vector3()
-          .addScaledVector(forward, inputZ)
-          .addScaledVector(right, inputX)
-          .normalize();
-
-        const speed = this.boatData.speed;
-        pos.x += moveDir.x * speed * dt;
-        pos.z += moveDir.z * speed * dt;
-
-        // Clamp to water bounds
-        pos.x = Math.max(this.bounds.minX, Math.min(this.bounds.maxX, pos.x));
-        pos.z = Math.max(this.bounds.minZ, Math.min(this.bounds.maxZ, pos.z));
-
-        // Face movement direction (smooth)
-        const targetAngle = Math.atan2(moveDir.x, moveDir.z);
-        let angleDiff = targetAngle - this.group.rotation.y;
-        while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
-        while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
-        this.group.rotation.y += angleDiff * Math.min(dt * 5, 1);
-      }
-    }
+    const wakeOpacity = this.sailing ? speedRatio * 0.36 : 0;
+    this.wakeMaterials.forEach((mat, index) => {
+      const flicker = 0.84 + Math.sin(this.wakeTime * 8 + index * 1.7) * 0.16;
+      mat.opacity = wakeOpacity * flicker * (index === this.wakeMaterials.length - 1 ? 0.65 : 1);
+    });
 
     // Update rod attach point (world-space)
     this.group.updateMatrixWorld(true);
-    const localAttach = new THREE.Vector3(0, 1.2, -0.8);
+    const attachY = this.boatData.id === 'research_vessel' ? 1.55 : 1.15;
+    const attachZ = this.boatData.id === 'rowboat' ? 0.75 : 1.05;
+    const localAttach = new THREE.Vector3(-0.45, attachY, attachZ);
     this.rodAttachPoint.copy(localAttach).applyMatrix4(this.group.matrixWorld);
   }
 

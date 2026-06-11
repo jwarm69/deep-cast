@@ -357,7 +357,53 @@ async function main() {
   });
 
   engine.events.on(Events.LURE_TWITCH, (e) => {
-    ripples.spawn(e.data.x, e.data.z, { scale: 0.9, life: 0.8, opacity: 0.45 });
+    const effect = e.data.effect ?? 0;
+    ripples.spawn(e.data.x, e.data.z, {
+      scale: 0.9 + Math.max(0, effect) * 2.2,
+      life: effect < 0 ? 0.55 : 0.8,
+      opacity: effect < 0 ? 0.28 : 0.45,
+      color: effect < 0 ? 0xfca5a5 : 0xe8f6ff,
+    });
+  });
+
+  engine.events.on(Events.FISH_INSPECT, (e) => {
+    fishShadow.inspect();
+    ripples.spawn(e.data.x, e.data.z, { scale: 1.0, life: 1.4, opacity: 0.32 });
+  });
+
+  engine.events.on(Events.FISH_CHASE, (e) => {
+    fishShadow.chase();
+    ripples.burst(e.data.x, e.data.z, 2, { scale: 1.25, life: 0.85, opacity: 0.5 });
+  });
+
+  engine.events.on(Events.FISH_REJECT, () => {
+    fishShadow.flee();
+    biteIndicator.hide();
+    ripples.burst(bobber.position.x, bobber.position.z, 1, { scale: 0.9, life: 0.55, opacity: 0.35, color: 0xfca5a5 });
+  });
+
+  engine.events.on(Events.SURFACE_CLUE, (e) => {
+    const x = e.data.x;
+    const z = e.data.z;
+    const strength = e.data.strength ?? 0.5;
+    const pos = new THREE.Vector3(x, 0.45, z);
+    switch (e.data.kind) {
+      case 'bubbles':
+        FX.biteBubbles(pos, particles);
+        ripples.spawn(x, z, { scale: 0.8 + strength * 0.7, life: 1.0, opacity: 0.24 });
+        break;
+      case 'splash':
+        FX.splash(pos, particles);
+        ripples.burst(x, z, 2, { scale: 1.0 + strength * 0.8, life: 0.8, opacity: 0.42 });
+        break;
+      case 'glow':
+        ripples.burst(x, z, 2, { scale: 1.1 + strength, life: 1.35, opacity: 0.5, color: 0xfbbf24 });
+        FX.catchSparkle(pos, particles, new THREE.Color(0xfbbf24));
+        break;
+      default:
+        ripples.spawn(x, z, { scale: 0.8 + strength * 0.8, life: 1.35, opacity: 0.28 });
+        break;
+    }
   });
 
   engine.events.on(Events.FISH_BITE, () => {

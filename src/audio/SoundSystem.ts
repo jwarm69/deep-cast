@@ -31,6 +31,10 @@ export class SoundSystem implements Component {
       this.stopReel();
       this.escapeFail();
     });
+    this.events.on(Events.FISH_REJECT, () => {
+      this.stopReel();
+      this.escapeFail();
+    });
     this.events.on(Events.LINE_SNAPPED, () => {
       this.stopReel();
       this.lineSnap();

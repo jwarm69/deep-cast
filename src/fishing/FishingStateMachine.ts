@@ -1,4 +1,4 @@
-import { Component, FishSpecies, FishingState, Events, CatchData } from '../core/types';
+import { Component, FishSpecies, FishingState, Events, CatchData, Rarity } from '../core/types';
 import { EventSystem } from '../core/EventSystem';
 import { InputManager } from '../core/InputManager';
 import { FishRaritySystem } from '../fish/FishRaritySystem';
@@ -7,6 +7,7 @@ import { FishingLine } from '../entities/FishingLine';
 import { FishingRod } from '../entities/FishingRod';
 import { PlayerState } from '../state/PlayerState';
 import { FightModel } from './FightModel';
+import { LureData } from '../data/equipment';
 
 export interface CastAim {
   direction: { x: number; z: number };
@@ -20,6 +21,18 @@ export interface CastAim {
 export interface EnvironmentModifiers {
   biteSpeedMultiplier: number;
   rareBonus: number;
+}
+
+type FishFeedingStyle = 'general' | 'fast' | 'bottom' | 'rare' | 'deep' | 'heavy';
+type SurfaceClueKind = 'ripples' | 'bubbles' | 'splash' | 'glow';
+
+interface LureResponse {
+  style: FishFeedingStyle;
+  interest: number;
+  compatibility: number;
+  twitchEffect: number;
+  rejectChance: number;
+  clue: SurfaceClueKind;
 }
 
 export class FishingStateMachine implements Component {
@@ -58,6 +71,10 @@ export class FishingStateMachine implements Component {
   private spaceWasDown = false;
   private spaceHeldTime = 0;
   private twitchCooldown = 0;
+  private lureResponse: LureResponse | null = null;
+  private inspectedCurrentFish = false;
+  private chasedCurrentFish = false;
+  private twitchCount = 0;
 
   // Biting
   private biteTimer = 0;
@@ -248,9 +265,13 @@ export class FishingStateMachine implements Component {
       this.twitchCooldown = 0;
       this.spaceWasDown = this.input.spaceDown;
       this.spaceHeldTime = 0;
+      this.inspectedCurrentFish = false;
+      this.chasedCurrentFish = false;
+      this.twitchCount = 0;
 
       // Roll the fish now so the approaching shadow can telegraph size and rarity
       this.rollPendingFish();
+      this.configureLureResponse();
 
       this.setState(FishingState.WAITING);
       this.events.emit(Events.BOBBER_LAND, {
@@ -305,6 +326,7 @@ export class FishingStateMachine implements Component {
   private updateWaiting(dt: number): void {
     this.waitTimer += dt;
     this.twitchCooldown = Math.max(0, this.twitchCooldown - dt);
+    const response = this.lureResponse;
 
     // Lure twitch: a quick space tap entices the fish, shortening the wait
     const spaceDown = this.input.spaceDown;
@@ -313,16 +335,67 @@ export class FishingStateMachine implements Component {
     } else {
       if (this.spaceWasDown && this.spaceHeldTime < 0.3 && this.twitchCooldown <= 0) {
         this.twitchCooldown = 1.5;
-        this.waitTimer += this.waitDuration * 0.12;
+        this.twitchCount++;
+        const twitchEffect = this.applyLureTwitch();
+        this.waitTimer += this.waitDuration * (0.06 + Math.max(0, twitchEffect) * 0.24);
         this.bobber.twitch();
         this.events.emit(Events.LURE_TWITCH, {
           x: this.bobber.position.x,
           z: this.bobber.position.z,
+          effect: twitchEffect,
+          category: this.player?.activeLure.category ?? 'worm',
         });
+        if (this.shouldSpookFromTwitch(twitchEffect)) {
+          this.rejectPendingFish('spooked');
+          return;
+        }
       }
       this.spaceHeldTime = 0;
     }
     this.spaceWasDown = spaceDown;
+
+    const waitProgress = this.waitDuration > 0 ? this.waitTimer / this.waitDuration : 1;
+    if (response && !this.inspectedCurrentFish && waitProgress >= 0.32) {
+      this.inspectedCurrentFish = true;
+      this.events.emit(Events.FISH_INSPECT, {
+        x: this.bobber.position.x,
+        z: this.bobber.position.z,
+        style: response.style,
+        interest: response.interest,
+        clue: response.clue,
+      });
+      this.events.emit(Events.SURFACE_CLUE, {
+        x: this.bobber.position.x,
+        z: this.bobber.position.z,
+        kind: response.clue,
+        strength: 0.65,
+        rarity: this.pendingCatch?.species.rarity,
+      });
+    }
+
+    if (response && !this.chasedCurrentFish && waitProgress >= 0.66) {
+      this.chasedCurrentFish = true;
+      if (Math.random() < response.rejectChance) {
+        this.rejectPendingFish('rejected');
+        return;
+      }
+
+      this.waitTimer += this.waitDuration * (0.08 + response.interest * 0.1);
+      this.events.emit(Events.FISH_CHASE, {
+        x: this.bobber.position.x,
+        z: this.bobber.position.z,
+        style: response.style,
+        interest: response.interest,
+        clue: response.clue,
+      });
+      this.events.emit(Events.SURFACE_CLUE, {
+        x: this.bobber.position.x,
+        z: this.bobber.position.z,
+        kind: response.style === 'fast' ? 'splash' : response.clue,
+        strength: 0.9,
+        rarity: this.pendingCatch?.species.rarity,
+      });
+    }
 
     if (this.waitTimer >= this.waitDuration) {
       this.bobber.setSinking(true);
@@ -335,6 +408,119 @@ export class FishingStateMachine implements Component {
         rarity: this.pendingCatch?.species.rarity,
       });
     }
+  }
+
+  private configureLureResponse(): void {
+    const fish = this.pendingCatch?.species;
+    if (!fish) return;
+
+    const lure = this.player?.activeLure;
+    const style = this.classifyFishStyle(fish);
+    const compatibility = this.lureCompatibility(lure?.category ?? 'worm', style, fish);
+    const rarityCaution = fish.rarity === Rarity.EPIC ? 0.04 : fish.rarity === Rarity.LEGENDARY ? 0.08 : 0;
+    const interest = clamp01(0.56 + compatibility - fish.reelDifficulty * 0.12 - rarityCaution);
+    const mismatch = Math.max(0, -compatibility);
+
+    this.lureResponse = {
+      style,
+      interest,
+      compatibility,
+      twitchEffect: this.twitchEffectFor(lure?.category ?? 'worm', style, fish),
+      rejectChance: clamp(0.12 - interest * 0.08 + mismatch * 0.45 + rarityCaution, 0.015, 0.22),
+      clue: this.surfaceClueFor(style, fish),
+    };
+
+    this.waitDuration *= clamp(1.18 - interest * 0.46, 0.68, 1.28);
+    this.events.emit(Events.SURFACE_CLUE, {
+      x: this.flightTarget.x,
+      z: this.flightTarget.z,
+      kind: this.lureResponse.clue,
+      strength: 0.45,
+      rarity: fish.rarity,
+    });
+  }
+
+  private applyLureTwitch(): number {
+    const response = this.lureResponse;
+    if (!response) return 0;
+
+    const repeatedPenalty = Math.max(0, this.twitchCount - 2) * 0.05;
+    const effect = response.twitchEffect - repeatedPenalty;
+    response.interest = clamp01(response.interest + effect);
+    response.rejectChance = clamp(response.rejectChance - effect * 0.2 + repeatedPenalty * 0.35, 0.01, 0.3);
+    return effect;
+  }
+
+  private shouldSpookFromTwitch(effect: number): boolean {
+    const response = this.lureResponse;
+    if (!response) return false;
+    if (this.twitchCount < 2) return false;
+    const spookChance = clamp(-effect * 1.2 + Math.max(0, this.twitchCount - 3) * 0.08, 0, 0.35);
+    return Math.random() < spookChance;
+  }
+
+  private rejectPendingFish(reason: 'rejected' | 'spooked'): void {
+    const fish = this.pendingCatch;
+    this.resetFishing();
+    this.setState(FishingState.ESCAPED);
+    this.escapedTimer = 0;
+    this.events.emit(Events.FISH_REJECT, {
+      reason,
+      fishName: fish ? this.reelFishName : null,
+      category: this.player?.activeLure.category ?? 'worm',
+    });
+  }
+
+  private classifyFishStyle(fish: FishSpecies): FishFeedingStyle {
+    const id = fish.id.toLowerCase();
+    const description = fish.description.toLowerCase();
+    if (fish.deepWater) return 'deep';
+    if (fish.maxWeight >= 30 || id.includes('sturgeon') || id.includes('marlin')) return 'heavy';
+    if (
+      description.includes('bottom') ||
+      id.includes('carp') ||
+      id.includes('catfish') ||
+      id.includes('eel') ||
+      id.includes('cod') ||
+      id.includes('halibut') ||
+      id.includes('ray')
+    ) return 'bottom';
+    if (fish.rarity === Rarity.RARE || fish.rarity === Rarity.EPIC || fish.rarity === Rarity.LEGENDARY) return 'rare';
+    if (fish.reelDifficulty >= 0.38 || id.includes('trout') || id.includes('bass') || id.includes('pike')) return 'fast';
+    return 'general';
+  }
+
+  private lureCompatibility(category: LureData['category'], style: FishFeedingStyle, fish: FishSpecies): number {
+    switch (category) {
+      case 'spinner':
+        return style === 'fast' ? 0.23 : style === 'rare' ? 0.12 : style === 'bottom' || style === 'heavy' ? -0.08 : 0.06;
+      case 'worm':
+        return style === 'bottom' ? 0.22 : style === 'general' ? 0.16 : style === 'fast' ? -0.02 : style === 'deep' ? -0.06 : 0.02;
+      case 'glow':
+        return style === 'deep' ? 0.25 : style === 'rare' ? 0.23 : fish.rarity === Rarity.LEGENDARY ? 0.28 : style === 'general' ? -0.08 : 0.04;
+      case 'jig':
+        return style === 'heavy' ? 0.25 : style === 'deep' || style === 'bottom' ? 0.2 : style === 'fast' ? -0.1 : 0.02;
+    }
+  }
+
+  private twitchEffectFor(category: LureData['category'], style: FishFeedingStyle, fish: FishSpecies): number {
+    switch (category) {
+      case 'spinner':
+        return style === 'fast' || style === 'rare' ? 0.13 : style === 'bottom' ? -0.08 : 0.05;
+      case 'worm':
+        return style === 'bottom' || style === 'general' ? 0.08 : style === 'fast' ? 0.02 : -0.04;
+      case 'glow':
+        return style === 'deep' || style === 'rare' || fish.rarity === Rarity.LEGENDARY ? 0.1 : -0.05;
+      case 'jig':
+        return style === 'heavy' || style === 'deep' || style === 'bottom' ? 0.11 : -0.07;
+    }
+  }
+
+  private surfaceClueFor(style: FishFeedingStyle, fish: FishSpecies): SurfaceClueKind {
+    if (fish.rarity === Rarity.LEGENDARY || fish.rarity === Rarity.EPIC || fish.deepWater) return 'glow';
+    if (style === 'bottom' || style === 'heavy') return 'bubbles';
+    if (style === 'fast' || style === 'rare') return 'splash';
+    return 'ripples';
   }
 
   // --- BITING ---
@@ -461,6 +647,10 @@ export class FishingStateMachine implements Component {
     this.line.hide();
     this.castPower = 0;
     this.fightActionWasDown = false;
+    this.lureResponse = null;
+    this.inspectedCurrentFish = false;
+    this.chasedCurrentFish = false;
+    this.twitchCount = 0;
   }
 
   private updateLine(): void {
@@ -487,4 +677,12 @@ export class FishingStateMachine implements Component {
   get lastCatch(): CatchData | null { return this.pendingCatch; }
 
   destroy(): void {}
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value));
+}
+
+function clamp01(value: number): number {
+  return clamp(value, 0, 1);
 }

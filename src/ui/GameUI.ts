@@ -59,6 +59,8 @@ export class GameUI implements Component {
   private levelUpTimer = 0;
   private playerMode = PlayerMode.SHORE;
   private isDeepWater = false;
+  private lureHint = 'Waiting for a bite...';
+  private lureHintTimer = 0;
 
   constructor(events: EventSystem, fsm: FishingStateMachine, player: PlayerState) {
     this.events = events;
@@ -120,6 +122,23 @@ export class GameUI implements Component {
     });
     this.events.on(Events.FISH_ESCAPED, () => {
       this.escapedUI.textContent = 'The fish escaped!';
+    });
+    this.events.on(Events.FISH_INSPECT, (e) => {
+      this.showLureHint(getInspectHint(e.data.style));
+    });
+    this.events.on(Events.FISH_CHASE, (e) => {
+      this.showLureHint(getChaseHint(e.data.style));
+    });
+    this.events.on(Events.FISH_REJECT, (e) => {
+      this.escapedUI.textContent = e.data.reason === 'spooked'
+        ? 'The fish spooked!'
+        : 'The fish rejected the lure!';
+      this.showLureHint('The water goes quiet...');
+    });
+    this.events.on(Events.LURE_TWITCH, (e) => {
+      const effect = e.data.effect ?? 0;
+      if (effect > 0.08) this.showLureHint('The lure got attention...');
+      else if (effect < -0.04) this.showLureHint('That twitch looked wrong...');
     });
     this.events.on(Events.REEL_START, (e) => {
       this.reelBehavior.textContent = BEHAVIOR_HINTS[e.data.behavior as string] ?? '';
@@ -218,6 +237,11 @@ export class GameUI implements Component {
     this.levelUpTimer = 3.0;
   }
 
+  private showLureHint(text: string): void {
+    this.lureHint = text;
+    this.lureHintTimer = 2.2;
+  }
+
   private updateBoatBadge(): void {
     if (this.playerMode !== PlayerMode.BOAT) {
       this.deepWaterBadge.style.display = 'none';
@@ -238,6 +262,12 @@ export class GameUI implements Component {
       this.levelUpTimer -= dt;
       if (this.levelUpTimer <= 0) {
         this.levelUpBanner.classList.remove('visible');
+      }
+    }
+    if (this.lureHintTimer > 0) {
+      this.lureHintTimer -= dt;
+      if (this.lureHintTimer <= 0) {
+        this.lureHint = 'Waiting for a bite...';
       }
     }
 
@@ -278,6 +308,8 @@ export class GameUI implements Component {
         this.prompt.style.display = 'none';
         this.catchPopup.classList.remove('visible');
         this.catchDisplayed = false;
+        this.lureHint = 'Waiting for a bite...';
+        this.lureHintTimer = 0;
         this.castUI.classList.add('visible');
         this.powerBar.style.width = `${this.fsm.currentCastPower}%`;
         break;
@@ -288,7 +320,7 @@ export class GameUI implements Component {
         break;
 
       case FishingState.WAITING:
-        this.prompt.textContent = 'Waiting for a bite...';
+        this.prompt.textContent = this.lureHint;
         this.prompt.style.display = 'block';
         break;
 
@@ -326,4 +358,26 @@ export class GameUI implements Component {
   }
 
   destroy(): void {}
+}
+
+function getInspectHint(style: string): string {
+  switch (style) {
+    case 'fast': return 'A fast shadow is inspecting the lure...';
+    case 'bottom': return 'Bubbles rise under the lure...';
+    case 'rare': return 'A strange shadow circles close...';
+    case 'deep': return 'Something deep is reading the lure...';
+    case 'heavy': return 'A heavy shape turns below...';
+    default: return 'A fish is inspecting the lure...';
+  }
+}
+
+function getChaseHint(style: string): string {
+  switch (style) {
+    case 'fast': return 'It lunges at the lure!';
+    case 'bottom': return 'It rises from the bottom!';
+    case 'rare': return 'The shadow commits!';
+    case 'deep': return 'The deep contact surges upward!';
+    case 'heavy': return 'The heavy fish closes in!';
+    default: return 'The fish is chasing!';
+  }
 }

@@ -14,6 +14,7 @@ export interface LureData {
   id: string;
   name: string;
   tier: number;
+  category: 'worm' | 'spinner' | 'glow' | 'jig';
   rareBonusChance: number;
   biteSpeedMultiplier: number;
   cost: number;
@@ -38,11 +39,12 @@ export const RODS: RodData[] = [
 ];
 
 export const LURES: LureData[] = [
-  { id: 'standard', name: 'Standard Lure', tier: 1, rareBonusChance: 0, biteSpeedMultiplier: 1.0, cost: 0, levelRequired: 1 },
-  { id: 'shiny', name: 'Shiny Lure', tier: 2, rareBonusChance: 0.05, biteSpeedMultiplier: 1.15, cost: 150, levelRequired: 4 },
-  { id: 'glowing', name: 'Glowing Lure', tier: 3, rareBonusChance: 0.15, biteSpeedMultiplier: 1.3, cost: 400, levelRequired: 8 },
-  { id: 'rainbow', name: 'Rainbow Lure', tier: 4, rareBonusChance: 0.25, biteSpeedMultiplier: 1.5, cost: 800, levelRequired: 14 },
-  { id: 'golden', name: 'Golden Lure', tier: 5, rareBonusChance: 0.35, biteSpeedMultiplier: 1.8, cost: 1200, levelRequired: 18 },
+  { id: 'standard', name: 'Worm Lure', tier: 1, category: 'worm', rareBonusChance: 0, biteSpeedMultiplier: 1.0, cost: 0, levelRequired: 1 },
+  { id: 'shiny', name: 'Shiny Spinner', tier: 2, category: 'spinner', rareBonusChance: 0.05, biteSpeedMultiplier: 1.15, cost: 150, levelRequired: 4 },
+  { id: 'glowing', name: 'Glow Lure', tier: 3, category: 'glow', rareBonusChance: 0.15, biteSpeedMultiplier: 1.3, cost: 400, levelRequired: 8 },
+  { id: 'heavy_jig', name: 'Heavy Jig', tier: 4, category: 'jig', rareBonusChance: 0.18, biteSpeedMultiplier: 0.95, cost: 700, levelRequired: 12 },
+  { id: 'rainbow', name: 'Rainbow Spinner', tier: 4, category: 'spinner', rareBonusChance: 0.25, biteSpeedMultiplier: 1.5, cost: 800, levelRequired: 14 },
+  { id: 'golden', name: 'Golden Glow Lure', tier: 5, category: 'glow', rareBonusChance: 0.35, biteSpeedMultiplier: 1.8, cost: 1200, levelRequired: 18 },
 ];
 
 export const LINES: LineData[] = [

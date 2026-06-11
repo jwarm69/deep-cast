@@ -82,6 +82,10 @@ export const Events = {
   LINE_SNAPPED: 'fishing:line_snapped',
   LURE_TWITCH: 'fishing:lure_twitch',
   FISH_APPROACH: 'fishing:fish_approach',
+  FISH_INSPECT: 'fishing:fish_inspect',
+  FISH_CHASE: 'fishing:fish_chase',
+  FISH_REJECT: 'fishing:fish_reject',
+  SURFACE_CLUE: 'fishing:surface_clue',
   STATE_CHANGE: 'fishing:state_change',
 
   // Input

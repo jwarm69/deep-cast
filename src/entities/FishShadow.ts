@@ -133,6 +133,22 @@ export class FishShadow implements Component {
     this.state = 'fighting';
   }
 
+  inspect(): void {
+    if (this.state === 'hidden') return;
+    this.state = 'circling';
+    this.circleRadius = 2.2;
+    this.circleAngle = Math.random() * Math.PI * 2;
+    this.rippleTimer = 0;
+  }
+
+  chase(): void {
+    if (this.state === 'hidden') return;
+    this.state = 'circling';
+    this.circleRadius = 0.75;
+    this.circleAngle = Math.random() * Math.PI * 2;
+    this.rippleTimer = 0;
+  }
+
   flee(): void {
     if (this.state === 'hidden') return;
     this.fleeDir.set(Math.random() - 0.5, Math.random() - 0.5).normalize();

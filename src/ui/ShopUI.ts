@@ -236,7 +236,7 @@ export class ShopUI implements Component {
       return `Cast: ${rod.castPowerMultiplier}x | Reel: ${rod.reelSpeedMultiplier}x`;
     } else if (type === 'lure') {
       const lure = item as LureData;
-      return `Bite Speed: ${lure.biteSpeedMultiplier}x | Rare Bonus: +${Math.round(lure.rareBonusChance * 100)}%`;
+      return `${formatLureCategory(lure.category)} | Bite: ${lure.biteSpeedMultiplier}x | Rare: +${Math.round(lure.rareBonusChance * 100)}%`;
     } else {
       const line = item as LineData;
       return `Max Fish Weight: ${line.maxFishWeight} lbs`;
@@ -443,5 +443,14 @@ export class ShopUI implements Component {
 
   destroy(): void {
     this.overlay.remove();
+  }
+}
+
+function formatLureCategory(category: LureData['category']): string {
+  switch (category) {
+    case 'worm': return 'Worm';
+    case 'spinner': return 'Spinner';
+    case 'glow': return 'Glow';
+    case 'jig': return 'Heavy Jig';
   }
 }

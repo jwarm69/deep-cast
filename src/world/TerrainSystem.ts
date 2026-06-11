@@ -25,6 +25,7 @@ export class TerrainSystem implements Component {
     this.createBoardwalks();
     this.createTrees();
     this.createRocks();
+    this.createBiomeLandmarks();
     this.createHills();
     this.createMountains();
     this.createDistantShoreline();
@@ -705,6 +706,364 @@ export class TerrainSystem implements Component {
       rock.castShadow = true;
       rock.receiveShadow = true;
       this.add(rock);
+    }
+  }
+
+  private createBiomeLandmarks(): void {
+    switch (this.config.terrain) {
+      case 'tropical':
+        this.createTropicalReefLandmarks();
+        break;
+      case 'arctic':
+        this.createArcticLandmarks();
+        break;
+      case 'swamp':
+        this.createSwampLandmarks();
+        break;
+      case 'mountain':
+        this.createMountainLandmarks();
+        break;
+      case 'volcano':
+        this.createVolcanoLandmarks();
+        break;
+      case 'reservoir':
+        this.createReservoirLandmarks();
+        break;
+      default:
+        this.createLakeLandmarks();
+        break;
+    }
+  }
+
+  private createLakeLandmarks(): void {
+    const flowerMat = this.trackMat(new THREE.MeshStandardMaterial({
+      color: 0xfacc15,
+      roughness: 0.6,
+    }));
+    const stemMat = this.trackMat(new THREE.MeshStandardMaterial({
+      color: 0x31572c,
+      roughness: 0.8,
+    }));
+    const stemGeo = this.trackGeo(new THREE.CylinderGeometry(0.025, 0.03, 0.7, 5));
+    const flowerGeo = this.trackGeo(new THREE.SphereGeometry(0.11, 8, 6));
+    const patches: [number, number][] = [[-16, -6], [-13, -9], [15, -8], [18, -12], [-2, -12], [6, -18]];
+
+    for (const [x, z] of patches) {
+      for (let i = 0; i < 4; i++) {
+        const ox = (Math.random() - 0.5) * 1.2;
+        const oz = (Math.random() - 0.5) * 1.2;
+        const stem = new THREE.Mesh(stemGeo, stemMat);
+        stem.position.set(x + ox, 0.65, z + oz);
+        stem.castShadow = true;
+        this.add(stem);
+
+        const flower = new THREE.Mesh(flowerGeo, flowerMat);
+        flower.position.set(x + ox, 1.05, z + oz);
+        flower.scale.y = 0.55;
+        flower.castShadow = true;
+        this.add(flower);
+      }
+    }
+  }
+
+  private createTropicalReefLandmarks(): void {
+    const coralMats = [
+      this.trackMat(new THREE.MeshStandardMaterial({ color: 0xff6b9d, emissive: 0x4a1028, emissiveIntensity: 0.2, roughness: 0.55 })),
+      this.trackMat(new THREE.MeshStandardMaterial({ color: 0xffc857, emissive: 0x4a2c08, emissiveIntensity: 0.16, roughness: 0.6 })),
+      this.trackMat(new THREE.MeshStandardMaterial({ color: 0x7dd3fc, emissive: 0x0b3a4a, emissiveIntensity: 0.18, roughness: 0.5 })),
+      this.trackMat(new THREE.MeshStandardMaterial({ color: 0xa78bfa, emissive: 0x28164a, emissiveIntensity: 0.2, roughness: 0.55 })),
+    ];
+    const branchGeo = this.trackGeo(new THREE.CylinderGeometry(0.07, 0.13, 1.0, 6));
+    const bulbGeo = this.trackGeo(new THREE.SphereGeometry(0.2, 8, 6));
+    const fanGeo = this.trackGeo(new THREE.PlaneGeometry(0.8, 1.1));
+
+    const clusters: [number, number][] = [[-18, 10], [-10, 18], [12, 15], [20, 26], [-22, 30], [4, 34], [16, 42]];
+    for (const [x, z] of clusters) {
+      const group = new THREE.Group();
+      group.position.set(x, -0.55, z);
+
+      for (let i = 0; i < 5; i++) {
+        const mat = coralMats[(i + Math.floor(Math.abs(x))) % coralMats.length];
+        const branch = new THREE.Mesh(branchGeo, mat);
+        branch.position.set((Math.random() - 0.5) * 1.4, 0.25 + i * 0.04, (Math.random() - 0.5) * 1.2);
+        branch.rotation.z = (Math.random() - 0.5) * 0.7;
+        branch.rotation.x = (Math.random() - 0.5) * 0.45;
+        branch.scale.setScalar(0.75 + Math.random() * 0.6);
+        group.add(branch);
+      }
+
+      const fan = new THREE.Mesh(fanGeo, coralMats[2]);
+      fan.position.set(0.45, 0.5, -0.2);
+      fan.rotation.y = Math.random() * Math.PI;
+      fan.castShadow = true;
+      group.add(fan);
+
+      const bulb = new THREE.Mesh(bulbGeo, coralMats[3]);
+      bulb.position.set(-0.5, 0.15, 0.35);
+      bulb.scale.set(1.4, 0.45, 1.1);
+      group.add(bulb);
+
+      this.add(group);
+    }
+  }
+
+  private createArcticLandmarks(): void {
+    const iceMat = this.trackMat(new THREE.MeshStandardMaterial({
+      color: 0xbdefff,
+      roughness: 0.22,
+      metalness: 0.08,
+      transparent: true,
+      opacity: 0.78,
+    }));
+    const wreckMat = this.trackMat(new THREE.MeshStandardMaterial({
+      color: 0x37474f,
+      roughness: 0.85,
+    }));
+
+    for (const [x, z, scale] of [[-18, 16, 1.5], [-8, 30, 0.9], [13, 24, 1.2], [24, 42, 1.8], [-24, 48, 1.3]] as [number, number, number][]) {
+      const bergGeo = this.trackGeo(new THREE.DodecahedronGeometry(scale, 0));
+      const berg = new THREE.Mesh(bergGeo, iceMat);
+      berg.position.set(x, 0.15, z);
+      berg.rotation.set(Math.random() * 0.4, Math.random() * Math.PI, Math.random() * 0.25);
+      berg.scale.y = 0.5 + Math.random() * 0.35;
+      berg.castShadow = true;
+      this.add(berg);
+    }
+
+    const wreck = new THREE.Group();
+    wreck.position.set(15, 0.45, 9);
+    wreck.rotation.y = -0.55;
+    const ribGeo = this.trackGeo(new THREE.BoxGeometry(0.12, 1.2, 2.2));
+    for (let i = 0; i < 6; i++) {
+      const rib = new THREE.Mesh(ribGeo, wreckMat);
+      rib.position.set((i - 2.5) * 0.65, 0.35, Math.sin(i) * 0.2);
+      rib.rotation.z = (i - 2.5) * 0.08;
+      rib.castShadow = true;
+      wreck.add(rib);
+    }
+    const keel = new THREE.Mesh(this.trackGeo(new THREE.BoxGeometry(4.6, 0.18, 0.22)), wreckMat);
+    keel.position.set(0, -0.1, 0);
+    wreck.add(keel);
+    this.add(wreck);
+  }
+
+  private createSwampLandmarks(): void {
+    const padMat = this.trackMat(new THREE.MeshStandardMaterial({
+      color: 0x2f6b2f,
+      roughness: 0.65,
+      side: THREE.DoubleSide,
+    }));
+    const flowerMat = this.trackMat(new THREE.MeshStandardMaterial({
+      color: 0xd8b4fe,
+      emissive: 0x2a1238,
+      emissiveIntensity: 0.2,
+      roughness: 0.45,
+    }));
+    const kneeMat = this.trackMat(new THREE.MeshStandardMaterial({
+      color: 0x2b2116,
+      roughness: 0.9,
+    }));
+    const fireflyMat = this.trackMat(new THREE.MeshBasicMaterial({
+      color: 0xd9f99d,
+      transparent: true,
+      opacity: 0.8,
+    }));
+
+    const padGeo = this.trackGeo(new THREE.CircleGeometry(0.65, 18, 0.4, Math.PI * 1.65));
+    const flowerGeo = this.trackGeo(new THREE.SphereGeometry(0.08, 7, 5));
+    for (const [x, z] of [[-14, 6], [-9, 12], [-2, 8], [7, 14], [13, 9], [18, 20], [-18, 22], [4, 28]] as [number, number][]) {
+      const pad = new THREE.Mesh(padGeo, padMat);
+      pad.position.set(x, 0.02, z);
+      pad.rotation.x = -Math.PI / 2;
+      pad.rotation.z = Math.random() * Math.PI * 2;
+      this.add(pad);
+
+      if (Math.random() > 0.45) {
+        const flower = new THREE.Mesh(flowerGeo, flowerMat);
+        flower.position.set(x + 0.15, 0.08, z - 0.1);
+        flower.scale.y = 0.45;
+        this.add(flower);
+      }
+    }
+
+    const kneeGeo = this.trackGeo(new THREE.ConeGeometry(0.18, 1.1, 6));
+    for (const [x, z] of [[-7, -2], [-5, 1], [6, -1], [9, 2], [-13, -4], [14, -3], [-3, 4], [3, 5]] as [number, number][]) {
+      const knee = new THREE.Mesh(kneeGeo, kneeMat);
+      knee.position.set(x, 0.85, z);
+      knee.rotation.z = (Math.random() - 0.5) * 0.35;
+      knee.castShadow = true;
+      this.add(knee);
+    }
+
+    const glowGeo = this.trackGeo(new THREE.SphereGeometry(0.06, 6, 4));
+    for (let i = 0; i < 26; i++) {
+      const glow = new THREE.Mesh(glowGeo, fireflyMat);
+      glow.position.set(-18 + Math.random() * 36, 1.0 + Math.random() * 2.5, -18 + Math.random() * 22);
+      this.add(glow);
+    }
+  }
+
+  private createMountainLandmarks(): void {
+    const waterMat = this.trackMat(new THREE.MeshBasicMaterial({
+      color: 0xbbeafe,
+      transparent: true,
+      opacity: 0.55,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+    }));
+    const snowMat = this.trackMat(new THREE.MeshStandardMaterial({
+      color: 0xf8fafc,
+      roughness: 0.6,
+    }));
+    const rockMat = this.trackMat(new THREE.MeshStandardMaterial({
+      color: this.config.rockColor,
+      roughness: 0.85,
+    }));
+
+    const fallsGroup = new THREE.Group();
+    fallsGroup.position.set(-24, 1.2, -26);
+    fallsGroup.rotation.y = 0.2;
+    for (let i = 0; i < 3; i++) {
+      const strip = new THREE.Mesh(this.trackGeo(new THREE.PlaneGeometry(0.55, 7.0 - i)), waterMat);
+      strip.position.set(i * 0.5, 3.2 - i * 0.3, 0);
+      strip.rotation.x = -0.12;
+      fallsGroup.add(strip);
+    }
+    const splash = new THREE.Mesh(this.trackGeo(new THREE.CircleGeometry(1.2, 24)), waterMat);
+    splash.position.set(0.5, -0.35, 0.6);
+    splash.rotation.x = -Math.PI / 2;
+    fallsGroup.add(splash);
+    this.add(fallsGroup);
+
+    for (const [x, z] of [[-10, -6], [11, -6], [-14, -11], [14, -12], [0, -18]] as [number, number][]) {
+      for (let i = 0; i < 4; i++) {
+        const stone = new THREE.Mesh(this.trackGeo(new THREE.DodecahedronGeometry(0.34 - i * 0.045, 0)), rockMat);
+        stone.position.set(x, 0.38 + i * 0.22, z);
+        stone.scale.y = 0.5;
+        stone.castShadow = true;
+        this.add(stone);
+      }
+    }
+
+    for (const [x, z, sx] of [[-20, -30, 8], [20, -28, 7], [0, -34, 9]] as [number, number, number][]) {
+      const snow = new THREE.Mesh(this.trackGeo(new THREE.ConeGeometry(sx * 0.32, 1.2, 8)), snowMat);
+      snow.position.set(x, 8.5, z);
+      snow.scale.y = 0.35;
+      snow.castShadow = true;
+      this.add(snow);
+    }
+  }
+
+  private createVolcanoLandmarks(): void {
+    const lavaMat = this.trackMat(new THREE.MeshStandardMaterial({
+      color: 0xff5a1f,
+      emissive: 0xff3b0a,
+      emissiveIntensity: 1.3,
+      roughness: 0.35,
+    }));
+    const obsidianMat = this.trackMat(new THREE.MeshStandardMaterial({
+      color: 0x090909,
+      roughness: 0.45,
+      metalness: 0.25,
+    }));
+    const steamMat = this.trackMat(new THREE.MeshBasicMaterial({
+      color: 0xd6d3d1,
+      transparent: true,
+      opacity: 0.18,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+    }));
+
+    const fissures: [number, number, number, number][] = [[-18, -8, 4.5, 0.4], [-3, -16, 6, -0.2], [13, -11, 5, 0.35], [20, 5, 7, -0.5]];
+    for (const [x, z, len, rot] of fissures) {
+      const crack = new THREE.Mesh(this.trackGeo(new THREE.BoxGeometry(0.22, 0.04, len)), lavaMat);
+      crack.position.set(x, 0.34, z);
+      crack.rotation.y = rot;
+      this.add(crack);
+
+      const glow = new THREE.PointLight(0xff5a1f, 0.6, 9);
+      glow.position.set(x, 1.2, z);
+      this.add(glow);
+    }
+
+    for (const [x, z, h] of [[-15, -18, 3.2], [17, -20, 4.5], [-22, -2, 2.8], [22, -6, 3.6], [5, -24, 4.0]] as [number, number, number][]) {
+      const spire = new THREE.Mesh(this.trackGeo(new THREE.ConeGeometry(0.7, h, 5)), obsidianMat);
+      spire.position.set(x, 0.3 + h / 2, z);
+      spire.rotation.z = (Math.random() - 0.5) * 0.24;
+      spire.castShadow = true;
+      this.add(spire);
+    }
+
+    for (const [x, z] of [[-6, -4], [7, -5], [14, 3], [-12, 2]] as [number, number][]) {
+      const vent = new THREE.Mesh(this.trackGeo(new THREE.CylinderGeometry(0.18, 0.38, 0.55, 7)), obsidianMat);
+      vent.position.set(x, 0.58, z);
+      vent.castShadow = true;
+      this.add(vent);
+
+      const plume = new THREE.Mesh(this.trackGeo(new THREE.ConeGeometry(0.65, 2.6, 10, 1, true)), steamMat);
+      plume.position.set(x, 1.9, z);
+      plume.scale.y = 1.25;
+      this.add(plume);
+    }
+  }
+
+  private createReservoirLandmarks(): void {
+    const concreteMat = this.trackMat(new THREE.MeshStandardMaterial({
+      color: 0x6b7477,
+      roughness: 0.82,
+    }));
+    const darkMat = this.trackMat(new THREE.MeshStandardMaterial({
+      color: 0x263238,
+      roughness: 0.9,
+    }));
+    const deadWoodMat = this.trackMat(new THREE.MeshStandardMaterial({
+      color: 0x2f281f,
+      roughness: 0.92,
+    }));
+
+    const dam = new THREE.Group();
+    dam.position.set(0, 0.1, 78);
+    const wall = new THREE.Mesh(this.trackGeo(new THREE.BoxGeometry(76, 7.5, 2.4)), concreteMat);
+    wall.position.y = 3.8;
+    wall.castShadow = true;
+    wall.receiveShadow = true;
+    dam.add(wall);
+
+    for (const x of [-28, -14, 0, 14, 28]) {
+      const spillway = new THREE.Mesh(this.trackGeo(new THREE.BoxGeometry(6.5, 5.0, 0.3)), darkMat);
+      spillway.position.set(x, 2.5, -1.25);
+      dam.add(spillway);
+    }
+
+    for (const x of [-36, 36]) {
+      const tower = new THREE.Mesh(this.trackGeo(new THREE.CylinderGeometry(2.0, 2.5, 10, 10)), concreteMat);
+      tower.position.set(x, 5.0, -0.5);
+      tower.castShadow = true;
+      dam.add(tower);
+    }
+    this.add(dam);
+
+    const trunkGeo = this.trackGeo(new THREE.CylinderGeometry(0.12, 0.22, 3.4, 7));
+    const branchGeo = this.trackGeo(new THREE.CylinderGeometry(0.035, 0.06, 1.3, 5));
+    for (const [x, z] of [[-20, 18], [-13, 26], [-5, 20], [9, 24], [17, 18], [23, 34], [-24, 38], [3, 42]] as [number, number][]) {
+      const snag = new THREE.Group();
+      snag.position.set(x, 0.0, z);
+      snag.rotation.z = (Math.random() - 0.5) * 0.18;
+
+      const trunk = new THREE.Mesh(trunkGeo, deadWoodMat);
+      trunk.position.y = 1.4;
+      trunk.castShadow = true;
+      snag.add(trunk);
+
+      for (let i = 0; i < 3; i++) {
+        const branch = new THREE.Mesh(branchGeo, deadWoodMat);
+        branch.position.set((Math.random() - 0.5) * 0.4, 2.0 + i * 0.35, 0);
+        branch.rotation.z = (i % 2 === 0 ? 0.75 : -0.75) + (Math.random() - 0.5) * 0.3;
+        branch.castShadow = true;
+        snag.add(branch);
+      }
+
+      this.add(snag);
     }
   }
 

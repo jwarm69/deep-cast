@@ -7,6 +7,7 @@ export class LightingSystem implements Component {
   private ambient!: THREE.AmbientLight;
   private hemi!: THREE.HemisphereLight;
   private sun!: THREE.DirectionalLight;
+  private rim!: THREE.DirectionalLight;
 
   constructor(scene: THREE.Scene) {
     this.scene = scene;
@@ -34,6 +35,12 @@ export class LightingSystem implements Component {
     this.sun.shadow.camera.bottom = -40;
     this.sun.shadow.bias = -0.001;
     this.scene.add(this.sun);
+
+    // Rim/back light — cool, shadowless, from over the water. Separates the
+    // boat, character, and rocks from the background. Cheap silhouette pop.
+    this.rim = new THREE.DirectionalLight(0xbfe3ff, 0.35);
+    this.rim.position.set(-18, 10, 70);
+    this.scene.add(this.rim);
   }
 
   /** Update all light params to match a biome config */
@@ -48,6 +55,11 @@ export class LightingSystem implements Component {
     this.sun.color.set(config.sunColor);
     this.sun.intensity = config.sunIntensity;
     this.sun.position.set(...config.sunPosition);
+
+    // Rim tint tracks the sky so it reads as bounced sky light, scaled to the
+    // biome's overall brightness (dimmer in fog/swamp/volcano).
+    this.rim.color.set(config.hemiSkyColor);
+    this.rim.intensity = 0.25 + config.sunIntensity * 0.12;
   }
 
   update(_dt: number): void {}

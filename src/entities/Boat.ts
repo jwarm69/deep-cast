@@ -25,6 +25,20 @@ export class Boat implements Component {
   private wakeMaterials: THREE.MeshBasicMaterial[] = [];
   private wakeTime = 0;
 
+  // Motion feel
+  private prevSpeed = 0;
+  private pitchAccel = 0; // bow rise/dip from acceleration
+  private bankAngle = 0;  // smoothed lean into turns
+  private idlePhase = 0;
+
+  // World-space foam wake trail — persists across boat/biome swaps, so it is
+  // owned separately from the per-boat mesh/material pools.
+  private trailGeo: THREE.CircleGeometry | null = null;
+  private trailPatches: { mesh: THREE.Mesh; mat: THREE.MeshBasicMaterial; life: number }[] = [];
+  private trailIndex = 0;
+  private trailEmitTimer = 0;
+  private readonly TRAIL_LIFE = 2.4;
+
   // Boat bounds on water
   private readonly bounds = {
     minX: -45, maxX: 45,
@@ -43,7 +57,74 @@ export class Boat implements Component {
     this.scene.add(this.group);
   }
 
-  init(): void {}
+  init(): void {
+    this.buildWakeTrail();
+  }
+
+  /** Pool of flat foam patches dropped behind the boat as it moves. */
+  private buildWakeTrail(): void {
+    this.trailGeo = new THREE.CircleGeometry(0.6, 16);
+    this.trailGeo.rotateX(-Math.PI / 2);
+    for (let i = 0; i < 22; i++) {
+      const mat = new THREE.MeshBasicMaterial({
+        color: 0xeaffff,
+        transparent: true,
+        opacity: 0,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+      });
+      const mesh = new THREE.Mesh(this.trailGeo, mat);
+      mesh.visible = false;
+      mesh.renderOrder = 1;
+      this.scene.add(mesh);
+      this.trailPatches.push({ mesh, mat, life: 0 });
+    }
+  }
+
+  private trailBaseScale(): number {
+    return 0.5 + this.boatLengthScale() * 0.25;
+  }
+
+  /** Emit from the stern while moving; age + grow + fade every patch. */
+  private updateWakeTrail(dt: number, pos: THREE.Vector3, speedRatio: number): void {
+    if (this.sailing && speedRatio > 0.16) {
+      this.trailEmitTimer -= dt;
+      if (this.trailEmitTimer <= 0) {
+        this.trailEmitTimer = 0.11 + (1 - speedRatio) * 0.16;
+        const yRot = this.group.rotation.y;
+        const back = new THREE.Vector3(-Math.sin(yRot), 0, -Math.cos(yRot));
+        const right = new THREE.Vector3(back.z, 0, -back.x);
+        const sternDist = 1.6 + this.boatLengthScale() * 1.1;
+        const jitter = (Math.random() - 0.5) * 0.5;
+
+        const p = this.trailPatches[this.trailIndex];
+        this.trailIndex = (this.trailIndex + 1) % this.trailPatches.length;
+        p.life = this.TRAIL_LIFE;
+        p.mesh.visible = true;
+        p.mesh.rotation.y = Math.random() * Math.PI;
+        p.mesh.position.set(
+          pos.x + back.x * sternDist + right.x * jitter,
+          0,
+          pos.z + back.z * sternDist + right.z * jitter,
+        );
+        p.mesh.scale.setScalar(this.trailBaseScale());
+      }
+    }
+
+    const base = this.trailBaseScale();
+    for (const p of this.trailPatches) {
+      if (p.life <= 0) {
+        if (p.mesh.visible) p.mesh.visible = false;
+        continue;
+      }
+      p.life -= dt;
+      const u = 1 - p.life / this.TRAIL_LIFE; // 0 = fresh, 1 = gone
+      p.mat.opacity = Math.max(0, 1 - u) * 0.5;
+      p.mesh.scale.setScalar(base * (1 + u * 2.2));
+      // Ride the water surface as the wake drifts.
+      p.mesh.position.y = this.water.getWaveHeight(p.mesh.position.x, p.mesh.position.z) + 0.02;
+    }
+  }
 
   /** Set the active boat model — clears old mesh and rebuilds */
   setBoatData(data: BoatData | null): void {
@@ -397,6 +478,13 @@ export class Boat implements Component {
     this.group.visible = false;
     this.sailing = false;
     this.velocity.set(0, 0, 0);
+    // Clear any live wake patches so foam doesn't freeze on the water when the
+    // boat update() loop early-returns while hidden.
+    for (const p of this.trailPatches) {
+      p.life = 0;
+      p.mat.opacity = 0;
+      p.mesh.visible = false;
+    }
   }
 
   startSailing(): void {
@@ -418,6 +506,12 @@ export class Boat implements Component {
 
   get worldPosition(): THREE.Vector3 {
     return this.group.position;
+  }
+
+  /** 0..1 fraction of top speed — drives camera feel and effects. */
+  get speedRatio(): number {
+    if (!this.boatData) return 0;
+    return THREE.MathUtils.clamp(this.velocity.length() / Math.max(this.boatData.speed, 0.001), 0, 1);
   }
 
   // --- Update ---
@@ -489,11 +583,32 @@ export class Boat implements Component {
 
     const tiltX = Math.atan2(hBack - hFront, sampleDist * 2) * 0.5;
     const tiltZ = Math.atan2(hRight - hLeft, sampleDist * 2) * 0.5;
-    const speedRatio = THREE.MathUtils.clamp(this.velocity.length() / Math.max(this.boatData.speed, 0.001), 0, 1);
 
-    // Preserve Y rotation (facing), apply tilt
+    const speed = this.velocity.length();
+    const speedRatio = THREE.MathUtils.clamp(speed / Math.max(this.boatData.speed, 0.001), 0, 1);
+
+    // Bow rises under acceleration, dips when braking — eased for weight.
+    const accel = (speed - this.prevSpeed) / Math.max(dt, 1e-4);
+    this.prevSpeed = speed;
+    const targetPitch = THREE.MathUtils.clamp(accel * 0.05, -0.16, 0.16);
+    this.pitchAccel += (targetPitch - this.pitchAccel) * Math.min(1, dt * 6);
+
+    // Smooth the lean so turns bank in and settle out.
+    this.bankAngle += (steeringLean - this.bankAngle) * Math.min(1, dt * 5);
+
+    // Gentle idle sway when sitting at the throttle but barely moving.
+    this.idlePhase += dt;
+    const idle = this.sailing ? Math.sin(this.idlePhase * 1.3) * 0.015 * (1 - speedRatio) : 0;
+
+    // Preserve Y rotation (facing); layer wave tilt, planing pitch, bank, idle.
     const yRot = this.group.rotation.y;
-    this.group.rotation.set(tiltX - speedRatio * 0.035, yRot, tiltZ + steeringLean * speedRatio);
+    this.group.rotation.set(
+      tiltX - speedRatio * 0.05 - this.pitchAccel + idle * 0.5,
+      yRot,
+      tiltZ + this.bankAngle * (0.6 + speedRatio) + idle,
+    );
+
+    this.updateWakeTrail(dt, pos, speedRatio);
 
     const wakeOpacity = this.sailing ? speedRatio * 0.36 : 0;
     this.wakeMaterials.forEach((mat, index) => {
@@ -512,5 +627,12 @@ export class Boat implements Component {
   destroy(): void {
     this.clearMesh();
     this.scene.remove(this.group);
+    for (const p of this.trailPatches) {
+      this.scene.remove(p.mesh);
+      p.mat.dispose();
+    }
+    this.trailPatches = [];
+    this.trailGeo?.dispose();
+    this.trailGeo = null;
   }
 }

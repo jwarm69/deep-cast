@@ -140,8 +140,73 @@ export class Boat implements Component {
       case 'research_vessel': this.buildResearchVessel(); break;
       default: this.buildRowboat(); break;
     }
+    this.buildAngler();
     this.applyMeshShadows();
     this.buildWake();
+  }
+
+  /**
+   * Seat the player's angler in the boat. When the player boards, the shore
+   * Character is hidden (main.ts), so without this the boat looks unmanned.
+   * Added to the boat group, so it bobs/tilts/banks with the hull, and tracked
+   * for disposal on the next boat swap.
+   */
+  private buildAngler(): void {
+    if (!this.boatData) return;
+
+    const bodyMat = this.trackMat(new THREE.MeshStandardMaterial({ color: 0x2563eb, roughness: 0.6 }));
+    const skinMat = this.trackMat(new THREE.MeshStandardMaterial({ color: 0xdeb887, roughness: 0.6 }));
+    const hatMat = this.trackMat(new THREE.MeshStandardMaterial({ color: 0x854d0e, roughness: 0.7 }));
+    const legMat = this.trackMat(new THREE.MeshStandardMaterial({ color: 0x374151, roughness: 0.7 }));
+
+    const angler = new THREE.Group();
+    // Sit higher/further forward on the big deck boat than in a small rowboat.
+    const seatY = this.boatData.id === 'research_vessel' ? 0.7 : 0.3;
+    const seatZ = this.boatData.id === 'rowboat' ? -0.1 : -0.25;
+    angler.position.set(-0.05, seatY, seatZ);
+
+    // Torso + head
+    const torso = new THREE.Mesh(this.trackGeo(new THREE.CapsuleGeometry(0.3, 0.62, 6, 12)), bodyMat);
+    torso.position.y = 0.55;
+    angler.add(torso);
+
+    const head = new THREE.Mesh(this.trackGeo(new THREE.SphereGeometry(0.22, 12, 8)), skinMat);
+    head.position.y = 1.2;
+    angler.add(head);
+
+    // Straw hat
+    const brim = new THREE.Mesh(this.trackGeo(new THREE.CylinderGeometry(0.34, 0.34, 0.05, 14)), hatMat);
+    brim.position.y = 1.33;
+    angler.add(brim);
+    const crown = new THREE.Mesh(this.trackGeo(new THREE.CylinderGeometry(0.19, 0.22, 0.22, 14)), hatMat);
+    crown.position.y = 1.46;
+    angler.add(crown);
+
+    // Seated legs — thighs forward, shins down
+    const thighGeo = this.trackGeo(new THREE.CylinderGeometry(0.11, 0.11, 0.5, 8));
+    const shinGeo = this.trackGeo(new THREE.CylinderGeometry(0.1, 0.1, 0.45, 8));
+    for (const sx of [-0.15, 0.15]) {
+      const thigh = new THREE.Mesh(thighGeo, legMat);
+      thigh.position.set(sx, 0.18, 0.28);
+      thigh.rotation.x = Math.PI / 2;
+      angler.add(thigh);
+      const shin = new THREE.Mesh(shinGeo, legMat);
+      shin.position.set(sx, -0.05, 0.5);
+      angler.add(shin);
+    }
+
+    // Arms reaching toward the rod
+    const armGeo = this.trackGeo(new THREE.CylinderGeometry(0.075, 0.075, 0.55, 8));
+    const rightArm = new THREE.Mesh(armGeo, skinMat);
+    rightArm.position.set(-0.32, 0.7, 0.2);
+    rightArm.rotation.set(-0.5, 0, 0.25);
+    angler.add(rightArm);
+    const leftArm = new THREE.Mesh(armGeo, skinMat);
+    leftArm.position.set(0.3, 0.62, 0.18);
+    leftArm.rotation.set(-0.35, 0, -0.25);
+    angler.add(leftArm);
+
+    this.group.add(angler);
   }
 
   private clearMesh(): void {

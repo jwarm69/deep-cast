@@ -129,10 +129,12 @@ async function main() {
       const boatPos = boat.worldPosition;
       engine.camera.setTarget(boatPos.clone().setY(boatPos.y + 2.0));
       boat.setCameraTheta(engine.camera.theta);
+      engine.camera.setFovBoost(boat.speedRatio * 4);
     } else {
       const charPos = character.group.position;
       engine.camera.setTarget(charPos.clone().setY(charPos.y + 2.0));
       character.setCameraTheta(engine.camera.theta);
+      engine.camera.setFovBoost(0);
     }
     originalCameraUpdate(dt);
   };

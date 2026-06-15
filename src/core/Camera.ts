@@ -31,6 +31,11 @@ export class Camera implements Component {
   private shakeDuration = 0;
   private shakeTimer = 0;
 
+  // Speed FOV (eased) — gives the boat a sense of speed
+  private baseFov = 55;
+  private fovBoost = 0;
+  private targetFovBoost = 0;
+
   private handleResize: () => void;
 
   constructor(input: InputManager) {
@@ -73,7 +78,20 @@ export class Camera implements Component {
     );
   }
 
+  /** Target FOV offset in degrees, eased in update(). 0 resets to base. */
+  setFovBoost(amount: number): void {
+    this.targetFovBoost = amount;
+  }
+
   update(dt: number): void {
+    // Ease FOV toward its target for a smooth sense of speed
+    this.fovBoost += (this.targetFovBoost - this.fovBoost) * Math.min(1, dt * 4);
+    const desiredFov = this.baseFov + this.fovBoost;
+    if (Math.abs(this.camera.fov - desiredFov) > 0.01) {
+      this.camera.fov = desiredFov;
+      this.camera.updateProjectionMatrix();
+    }
+
     // Orbit with left-click drag
     if (this.input.mouseDown) {
       const { dx, dy } = this.input.consumeMouseDelta();
